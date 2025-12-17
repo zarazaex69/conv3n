@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/conv3n/conv3n/internal/api"
-	"github.com/conv3n/conv3n/internal/storage"
+	"github.com/zarazaex69/conv3n/internal/api"
+	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
 func newExecutionMux(t *testing.T) (*http.ServeMux, storage.Storage) {

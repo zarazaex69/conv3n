@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/conv3n/conv3n/internal/storage"
+	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
 func main() {

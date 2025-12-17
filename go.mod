@@ -1,6 +1,6 @@
-module github.com/conv3n/conv3n
+module github.com/zarazaex69/conv3n
 
-go 1.24.0
+go 1.25
 
 require (
 	github.com/robfig/cron/v3 v3.0.1

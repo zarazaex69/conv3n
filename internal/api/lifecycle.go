@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/conv3n/conv3n/internal/engine"
-	"github.com/conv3n/conv3n/internal/storage"
+	"github.com/zarazaex69/conv3n/internal/engine"
+	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
 // LifecycleHandler handles execution lifecycle operations (stop, restart)

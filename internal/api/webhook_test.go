@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/conv3n/conv3n/internal/api"
-	"github.com/conv3n/conv3n/internal/engine"
-	"github.com/conv3n/conv3n/internal/storage"
+	"github.com/zarazaex69/conv3n/internal/api"
+	"github.com/zarazaex69/conv3n/internal/engine"
+	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
 func TestWebhookTrigger(t *testing.T) {

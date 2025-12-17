@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/conv3n/conv3n/internal/engine"
+	"github.com/zarazaex69/conv3n/internal/engine"
 )
 
 // TestBunRunner_ExecuteBlock_HTTPRequest verifies HTTP request block execution

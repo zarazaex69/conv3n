@@ -1,18 +1,18 @@
 package engine
 
 import (
+	"bufio" // For reading lines from stdout
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os" // For os.Stat to check file existence
+	"os"      // For os.Stat to check file existence
 	"os/exec" // For running Bun processes
-	"bufio" // For reading lines from stdout
 	"sync"
 	"time"
 
-	"github.com/conv3n/conv3n/internal/storage"
 	"github.com/robfig/cron/v3"
+	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
 // TriggerType defines the type of trigger
@@ -141,21 +141,21 @@ func (tm *TriggerManager) LoadTriggers(ctx context.Context) error {
 
 // TSTriggerRunner manages a TypeScript-based trigger executed by Bun.
 type TSTriggerRunner struct {
-	id             string
-	workflowID     string
-	triggerType    TriggerType
-	filePath       string
-	config         map[string]interface{}
-	manager        ManagerForRunner
-	cmd            *exec.Cmd
-	stdin          *bufio.Writer
-	stdoutScanner  *bufio.Scanner
-	stopChan       chan struct{}
-	readyChan      chan error
-	requests       sync.Map // Stores channels for pending requests (event replies)
-	isReady        bool
-	mu             sync.Mutex // Protects write access to stdin and state changes
-	cancelContext  context.CancelFunc
+	id            string
+	workflowID    string
+	triggerType   TriggerType
+	filePath      string
+	config        map[string]interface{}
+	manager       ManagerForRunner
+	cmd           *exec.Cmd
+	stdin         *bufio.Writer
+	stdoutScanner *bufio.Scanner
+	stopChan      chan struct{}
+	readyChan     chan error
+	requests      sync.Map // Stores channels for pending requests (event replies)
+	isReady       bool
+	mu            sync.Mutex // Protects write access to stdin and state changes
+	cancelContext context.CancelFunc
 }
 
 // NewTSTriggerRunner creates a new TypeScript trigger runner.

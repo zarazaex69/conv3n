@@ -10,10 +10,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/conv3n/conv3n/internal/api"
-	"github.com/conv3n/conv3n/internal/engine"
-	"github.com/conv3n/conv3n/internal/storage"
+	"github.com/zarazaex69/conv3n/internal/api"
+	"github.com/zarazaex69/conv3n/internal/engine"
+	"github.com/zarazaex69/conv3n/internal/storage"
 )
+
+// version is set via ldflags during build
+var Version = "dev"
 
 // Server holds the server configuration
 type Server struct {
@@ -53,6 +56,9 @@ func main() {
 			os.Exit(1)
 		}
 		runCLI(os.Args[2], blocksDir, store)
+	case "version", "--version", "-v":
+		fmt.Printf("conv3n %s\n", Version)
+		return
 	default:
 		printUsage()
 		os.Exit(1)
@@ -63,6 +69,7 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  conv3n server               Start the API server")
 	fmt.Println("  conv3n run <workflow.json>  Run a workflow file once (CLI mode)")
+	fmt.Println("  conv3n version              Show version information")
 }
 
 // --- Server Mode ---
