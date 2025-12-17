@@ -25,7 +25,7 @@ Conv3n is a lightweight workflow automation engine that lets you build and execu
 - **SQLite storage** - Lightweight, embedded database
 - **Cron triggers** - Schedule workflows with cron expressions
 
-## Quick Start
+## Fast Start
 
 ```bash
 # build the engine
