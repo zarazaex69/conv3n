@@ -49,14 +49,16 @@ cd web && bun dev
 
 Check the `examples/` directory for workflow samples including HTTP chains, data transforms, and conditional logic.
 
----
-
 <div align="center">
 
-**Contact**
-- Telegram: [zarazaex](https://t.me/zarazaexe)
-- Email: zarazaex@tuta.io
-- Site: [zarazaex.xyz](https://zarazaex.xyz)
+---
 
+### Contact
+
+Telegram: [zarazaex](https://t.me/zarazaexe)
+<br>
+Email: [zarazaex@tuta.io](mailto:zarazaex@tuta.io)
+<br>
+Site: [zarazaex.xyz](https://zarazaex.xyz)
 
 </div>
