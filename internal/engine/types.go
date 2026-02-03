@@ -41,25 +41,22 @@ func (nt NodeType) IsTrigger() bool {
 }
 
 // =============================================================================
-// GRAPH STRUCTURES (React Flow compatible)
+// GRAPH STRUCTURES
 // =============================================================================
 
 // Position represents the visual position of a node in the editor.
-// Compatible with React Flow's node position format.
 type Position struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 }
 
 // Node represents a single block in the workflow graph.
-// This structure is designed to be compatible with React Flow.
 type Node struct {
 	ID       string                 `json:"id"`
 	Type     NodeType               `json:"type"`
 	Position Position               `json:"position"`
 	Config   map[string]interface{} `json:"config,omitempty"`
-	// Data is used for React Flow compatibility (label, etc.)
-	Data map[string]interface{} `json:"data,omitempty"`
+	Data     map[string]interface{} `json:"data,omitempty"`
 }
 
 // Edge represents a connection between two nodes.

@@ -8,7 +8,6 @@
 ![TypeScript](https://img.shields.io/badge/-TypeScript-0D1117?style=flat-square&logo=typescript&logoColor=377CC8)
 ![Bun](https://img.shields.io/badge/-Bun-0D1117?style=flat-square&logo=Bun&logoColor=F3E6D8)
 ![SQLite](https://img.shields.io/badge/-SQLite-0D1117?style=flat-square&logo=sqlite&logoColor=003B57)
-![React](https://img.shields.io/badge/-React-0D1117?style=flat-square&logo=react&logoColor=61DAFB)
 
 </div>
 
@@ -21,7 +20,6 @@ Conv3n is a lightweight workflow automation engine that lets you build and execu
 - **JSON-based workflows** - Define complex automation flows declaratively
 - **Built-in blocks** - HTTP requests, data transforms, delays, conditions, loops
 - **Custom blocks** - Extend functionality with TypeScript/Bun runtime
-- **Web UI** - Visual workflow editor and monitoring
 - **SQLite storage** - Lightweight, embedded database
 - **Cron triggers** - Schedule workflows with cron expressions
 
@@ -33,15 +31,11 @@ make build
 
 # run a workflow
 ./bin/conv3n run examples/delay_simple.json
-
-# start web ui
-cd web && bun dev
 ```
 
 ## Tech Stack
 
 - **Backend**: Go 1.24+ with SQLite
-- **Frontend**: React + TypeScript + Vite
 - **Runtime**: Bun for custom blocks
 - **SDK**: TypeScript SDK for block development
 

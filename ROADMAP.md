@@ -74,7 +74,7 @@
 
 ## Phase 4. Studio & UX (no-code environment)
 1.  **Visual Builder**
-    - [ ] Drag-n-drop canvas (React/TS) with live validation.
+    - [ ] Drag-n-drop canvas with live validation.
     - [ ] Config inspector, live preview of node results.
 2.  **Debugger & Playback**
     - [ ] Step-by-step execution playback, context viewing.
