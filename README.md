@@ -13,15 +13,7 @@
 
 ## About
 
-Conv3n is a lightweight workflow automation engine that lets you build and execute complex workflows using JSON configurations. Chain HTTP requests, transform data, add delays, and create conditional logic with a simple node-based approach.
-
-## Features
-
-- **JSON-based workflows** - Define complex automation flows declaratively
-- **Built-in blocks** - HTTP requests, data transforms, delays, conditions, loops
-- **Custom blocks** - Extend functionality with TypeScript/Bun runtime
-- **SQLite storage** - Lightweight, embedded database
-- **Cron triggers** - Schedule workflows with cron expressions
+Conv3n is a lightweight workflow automation engine for neurone engine.
 
 ## Fast Start
 
@@ -30,7 +22,7 @@ Conv3n is a lightweight workflow automation engine that lets you build and execu
 make build
 
 # run a workflow
-./bin/conv3n run examples/delay_simple.json
+./bin/conv3n 
 ```
 
 ## Tech Stack
@@ -39,9 +31,7 @@ make build
 - **Runtime**: Bun for custom blocks
 - **SDK**: TypeScript SDK for block development
 
-## Examples
 
-Check the `examples/` directory for workflow samples including HTTP chains, data transforms, and conditional logic.
 
 <div align="center">
 
