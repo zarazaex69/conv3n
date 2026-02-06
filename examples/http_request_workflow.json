@@ -1,0 +1,31 @@
+{
+  "name": "http_request_example",
+  "version": "1.0.0",
+  "blocks": [
+    {
+      "id": "fetch_user",
+      "type": "std/http_request",
+      "config": {
+        "url": "https://jsonplaceholder.typicode.com/users/1",
+        "method": "GET"
+      }
+    },
+    {
+      "id": "post_data",
+      "type": "std/http_request",
+      "config": {
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "title": "Test Post",
+          "body": "Created by Conv3n",
+          "userId": "{{fetch_user.output.id}}"
+        }
+      },
+      "depends_on": ["fetch_user"]
+    }
+  ]
+}

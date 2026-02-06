@@ -1,0 +1,34 @@
+{
+  "name": "database_example",
+  "version": "1.0.0",
+  "blocks": [
+    {
+      "id": "create_table",
+      "type": "std/database",
+      "config": {
+        "operation": "execute",
+        "query": "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)"
+      }
+    },
+    {
+      "id": "insert_user",
+      "type": "std/database",
+      "config": {
+        "operation": "execute",
+        "query": "INSERT INTO users (name, email) VALUES (?, ?)",
+        "params": ["John Doe", "john@example.com"]
+      },
+      "depends_on": ["create_table"]
+    },
+    {
+      "id": "query_users",
+      "type": "std/database",
+      "config": {
+        "operation": "query",
+        "query": "SELECT * FROM users WHERE name = ?",
+        "params": ["John Doe"]
+      },
+      "depends_on": ["insert_user"]
+    }
+  ]
+}

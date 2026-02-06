@@ -1,0 +1,33 @@
+{
+  "name": "webhook_example",
+  "version": "1.0.0",
+  "blocks": [
+    {
+      "id": "receive_webhook",
+      "type": "std/webhook",
+      "config": {
+        "path": "/api/events",
+        "method": "POST"
+      }
+    },
+    {
+      "id": "process_payload",
+      "type": "std/transform",
+      "config": {
+        "script": "return { processed: true, event: input.body.event, timestamp: Date.now() };"
+      },
+      "depends_on": ["receive_webhook"]
+    },
+    {
+      "id": "respond",
+      "type": "std/webhook",
+      "config": {
+        "response": {
+          "status": 200,
+          "body": "{{process_payload.output}}"
+        }
+      },
+      "depends_on": ["process_payload"]
+    }
+  ]
+}

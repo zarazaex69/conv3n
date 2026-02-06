@@ -1,0 +1,46 @@
+{
+  "name": "variables_example",
+  "version": "1.0.0",
+  "blocks": [
+    {
+      "id": "set_config",
+      "type": "std/set_var",
+      "config": {
+        "key": "api_url",
+        "value": "https://api.example.com",
+        "scope": "workflow"
+      }
+    },
+    {
+      "id": "set_token",
+      "type": "std/set_var",
+      "config": {
+        "key": "auth_token",
+        "value": "secret_token_123",
+        "scope": "execution"
+      },
+      "depends_on": ["set_config"]
+    },
+    {
+      "id": "get_config",
+      "type": "std/get_var",
+      "config": {
+        "key": "api_url",
+        "scope": "workflow"
+      },
+      "depends_on": ["set_token"]
+    },
+    {
+      "id": "use_variables",
+      "type": "std/http_request",
+      "config": {
+        "url": "{{get_config.output.value}}/data",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Bearer {{auth_token}}"
+        }
+      },
+      "depends_on": ["get_config"]
+    }
+  ]
+}

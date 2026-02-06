@@ -1,0 +1,34 @@
+{
+  "name": "file_operations_example",
+  "version": "1.0.0",
+  "blocks": [
+    {
+      "id": "write_log",
+      "type": "std/file",
+      "config": {
+        "operation": "write",
+        "path": "/tmp/conv3n_test.log",
+        "content": "Workflow started at {{trigger.timestamp}}"
+      }
+    },
+    {
+      "id": "read_log",
+      "type": "std/file",
+      "config": {
+        "operation": "read",
+        "path": "/tmp/conv3n_test.log"
+      },
+      "depends_on": ["write_log"]
+    },
+    {
+      "id": "append_log",
+      "type": "std/file",
+      "config": {
+        "operation": "append",
+        "path": "/tmp/conv3n_test.log",
+        "content": "\nWorkflow completed"
+      },
+      "depends_on": ["read_log"]
+    }
+  ]
+}
