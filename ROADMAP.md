@@ -1,80 +1,64 @@
 # ROADMAP
 
 ## Vision
-- Create an open, completely free no-code tool that combines the best ideas from n8n, Scratch, and custom runtimes.
-- Emphasize execution speed (Go + Bun), architectural transparency, and ease of local installation.
-- Develop only the necessary level of security: responsibility for isolation lies with the platform deployer.
-
+- Create a pure execution runtime core that can be embedded and controlled by external applications.
+- Focus solely on workflow execution speed (Go) and architectural transparency.
+- Provide a clean API interface for frontends and external systems to orchestrate workflows.
 ## Principles
-1.  **Runtime first.** First, perfect the execution core, then build out APIs and interfaces.
-2.  **Easy extensibility.** Any block or integration should be added via a clear SDK without hidden limitations.
+1.  **Runtime only.** Pure execution engine without UI, triggers, or user-facing APIs.
+2.  **Embeddable.** Designed to be imported and controlled by other Go applications.
 3.  **Observability by default.** All executions are transparent: run history, node results, clear logs.
-4.  **Zero paywall.** BSD license, no paid features or donations.
-
+4.  **Zero dependencies on external services.** Self-contained execution core.
 ---
 
 ## Phase 0. Engineering Foundations
-- [X] **CI/CD**: gofmt, golangci-lint, bun test, runtime smoke tests.
-- [X] **Packaging**: Makefile targets for build/test, scripts for local deployment (Docker/Bun/Go).
-- [ ] **Documentation**: README, developer guide, block structure description.
+- [X] **CI/CD**: gofmt, golangci-lint, runtime smoke tests.
+- [X] **Packaging**: Makefile targets for build/test as Go library.
+- [ ] **Documentation**: Go package docs, embedding guide, execution model description.
 
-## Phase 1. Runtime Core 2.0
+## Phase 1. Runtime Core
 1.  **Graph Engine**
     - [X] Pointer-based execution with support for loops, branches, multiple start nodes.
     - [X] Variable management: set/get var, scoping, input data templating.
 2.  **Block Lifecycle**
     - [X] Unified input/output protocol (stdin/stdout JSON) for Bun blocks.
-    - [X] Extended STD set: HTTP, Condition, Delay, Loop, Transform, File, Database, Webhook, Custom Code.
-    - [X] Basic runtime and test runner in `pkg/bunock` (stdin/stdout JSON, output structure validation).
-    - [X] Type-safe SDK helpers for blocks on top of `pkg/bunock` (Block class, BlockHelpers, 49 unit tests).
+    - [X] Extended STD set: HTTP, Condition, Delay, Loop, Transform, File, Database, Custom Code.
+    - [X] Basic runtime in `pkg/bunock` (stdin/stdout JSON, output structure validation).
+    - [X] Type-safe SDK helpers for blocks on top of `pkg/bunock` (Block class, BlockHelpers).
 3.  **Reliability**
     - [X] Timeouts for each node's execution (config.timeout_ms + default).
-    - [ ] Heartbeat metrics per node.
     - [X] Resume: save ExecutionContext and restart from the last node.
     - [X] Idempotency: agreements on de-duplication keys (nodeID + executionID).
 4.  **Storage**
     - [X] Storage interface + SQLite implementation with run history and node results.
-    [ ] Alternative backends (Postgres, etc.) through the same abstraction.
+    - [ ] Alternative backends (Postgres, etc.) through the same abstraction.
 
-## Phase 2. Triggers and Integrations
-1.  **Trigger Engine**
-    - [X] Basic architecture: TriggerManager, TriggerRunner interface.
-    - [X] Cron triggers (robfig/cron/v3, asynchronous execution).
-    - [X] Interval triggers (time.Ticker, graceful shutdown).
-    - [X] Webhook triggers with signature verification and retry queue.
-    - [ ] Event triggers (files, messages, external events via IPC).
-    - [X] Storage for triggers (triggers, trigger_executions tables).
-    - [X] API endpoints for CRUD triggers.
-2.  **Concurrency Limiting**
-    - [X] Configurable worker pools per workflow / globally (WorkerPool).
-    - [X] Kill-switch and graceful shutdown for long-running tasks (ExecutionRegistry, context cancellation).
-3.  **Queues and Retries**
-    - [ ] Backoff policies, DLQ for failed tasks.
-    - [ ] Tags for re-running a specific node/chain.
-4.  **Integration SDKs**
-    - [ ] Templates for REST/SOAP, databases, queues (RabbitMQ, Kafka), file systems.
+## Phase 2. Core API Interface
+1.  **Execution Control**
+    - [X] Programmatic workflow execution interface (`Execute(workflow, input)`)
+    - [X] Execution lifecycle management: stop, pause, resume operations
+    - [X] Execution status tracking and result retrieval
+    - [ ] Batch execution capabilities
+2.  **Concurrency Management**
+    - [X] Configurable worker pools (WorkerPool)
+    - [X] Graceful shutdown for long-running tasks (ExecutionRegistry, context cancellation)
+3.  **Event System**
+    - [X] Execution event callbacks (start, complete, error, node execution)
+    - [X] Progress reporting interface for external monitoring
 
-## Phase 3. API and DevOps Layer
-1.  **Public API (REST/gRPC)**
-    - [X] Workflow CRUD (create, read, update, delete via HTTP API).
-    - [X] One-time workflow execution via HTTP (`POST /api/run`).
-    - [X] Execution lifecycle management: stop (`POST /api/executions/:id/stop`), restart, batch operations.
-    - [X] Get execution history and node results via HTTP API.
-    - [X] ExecutionStatusCancelled for tracking stopped executions.
-    - [ ] Trigger statuses and metrics via API.
-2.  **Auth & Multitenancy (minimal)**
-    - [ ] Tokens/keys per workspace.
-    - [ ] RBAC at workflow and secrets level.
-3.  **Secrets & Config**
-    - [ ] Storage for environment variables and secrets (Vault-compatible interface).
-    - [ ] Link to blocks via variables.
-4.  **DevOps tooling**
-    - [ ] Observability endpoints (Prometheus metrics, structured logs).
-    - [ ] CLI utility for migrations, workflow import/export, backups.
-
+## Phase 3. Library Interface
+1.  **Go Package API**
+    - [ ] Clean public interface for embedding (`runtime.New()`, `runtime.Execute()`)
+    - [ ] Configuration struct for runtime behavior
+    - [ ] Thread-safe operations for concurrent usage
+2.  **Block Development SDK**
+    - [X] Block development framework and testing utilities
+    - [ ] Block registration and discovery system
+    - [ ] Custom block development guide
 ---
 
 ## Final State
--   **Best no-code runtime**: Go speed, Bun flexibility, full openness.
--   **Production-grade**: triggers, API, observability, retries, scalability.
--   **0 monetization**: all functionality available for free under BSD, no donations accepted.
+-   **Pure runtime core**: Embeddable Go library for workflow execution
+-   **Frontend agnostic**: Can be controlled by web UIs, CLIs, or other applications
+-   **Production-grade**: Reliable execution, observability, scalability within the core
+-   **Library first**: Designed as a dependency, not a standalone application

@@ -14,12 +14,13 @@ import (
 // GraphRunner executes workflows using pointer-based graph traversal.
 // Unlike the linear WorkflowRunner, this supports branching, loops, and multiple output ports.
 type GraphRunner struct {
-	workflow    *Workflow
-	bunRunner   *BunRunner
-	ctx         *ExecutionContext
-	storage     storage.Storage
-	executionID string
-	lastNodeID  string
+	workflow      *Workflow
+	bunRunner     *BunRunner
+	ctx           *ExecutionContext
+	storage       storage.Storage
+	executionID   string
+	lastNodeID    string
+	eventListener EventListener
 }
 
 const defaultNodeTimeout = 30 * time.Second
@@ -33,10 +34,21 @@ type resumeState struct {
 // NewGraphRunner creates a new graph-based workflow runner.
 func NewGraphRunner(workflow *Workflow, blocksDir string, store storage.Storage) *GraphRunner {
 	return &GraphRunner{
-		workflow:  workflow,
-		bunRunner: NewBunRunner(blocksDir),
-		ctx:       NewExecutionContext(workflow.ID),
-		storage:   store,
+		workflow:      workflow,
+		bunRunner:     NewBunRunner(blocksDir),
+		ctx:           NewExecutionContext(workflow.ID),
+		storage:       store,
+		eventListener: nil,
+	}
+}
+
+func (gr *GraphRunner) SetEventListener(listener EventListener) {
+	gr.eventListener = listener
+}
+
+func (gr *GraphRunner) emitEvent(event Event) {
+	if gr.eventListener != nil {
+		gr.eventListener.OnEvent(event)
 	}
 }
 
@@ -66,13 +78,29 @@ func getNodeTimeout(node *Node) time.Duration {
 func (gr *GraphRunner) Run(ctx context.Context) error {
 	log.Printf("Starting graph workflow: %s (%s)", gr.workflow.Name, gr.workflow.ID)
 
-	// Create execution record in storage
 	execID, err := gr.storage.CreateExecution(ctx, gr.workflow.ID)
 	if err != nil {
 		return fmt.Errorf("failed to create execution record: %w", err)
 	}
 	gr.executionID = execID
 	gr.ctx.ExecutionID = execID
+
+	startNodes := gr.workflow.FindStartNodes()
+	if len(startNodes) == 0 {
+		return fmt.Errorf("no start nodes found in workflow")
+	}
+
+	startTime := time.Now()
+
+	gr.emitEvent(Event{
+		Type:        EventTypeExecutionStart,
+		Timestamp:   startTime,
+		ExecutionID: execID,
+		WorkflowID:  gr.workflow.ID,
+		Data: ExecutionStartData{
+			StartNodes: startNodes,
+		},
+	})
 
 	var finalStatus = storage.ExecutionStatusCompleted
 	var finalError *string
@@ -87,19 +115,35 @@ func (gr *GraphRunner) Run(ctx context.Context) error {
 		if err := gr.storage.UpdateExecutionStatus(ctx, execID, finalStatus, stateBytes, finalError); err != nil {
 			log.Printf("Failed to update execution status: %v", err)
 		}
+
+		if finalStatus == storage.ExecutionStatusCompleted {
+			gr.emitEvent(Event{
+				Type:        EventTypeExecutionComplete,
+				Timestamp:   time.Now(),
+				ExecutionID: execID,
+				WorkflowID:  gr.workflow.ID,
+				Data: ExecutionCompleteData{
+					Duration: time.Since(startTime),
+					Results:  gr.ctx.Results,
+				},
+			})
+		} else if finalStatus == storage.ExecutionStatusFailed {
+			var execErr error
+			if finalError != nil {
+				execErr = errors.New(*finalError)
+			}
+			gr.emitEvent(Event{
+				Type:        EventTypeExecutionError,
+				Timestamp:   time.Now(),
+				ExecutionID: execID,
+				WorkflowID:  gr.workflow.ID,
+				Error:       execErr,
+			})
+		}
 	}()
 
-	// Find start nodes (nodes with no incoming edges)
-	startNodes := gr.workflow.FindStartNodes()
-	if len(startNodes) == 0 {
-		return fmt.Errorf("no start nodes found in workflow")
-	}
-
-	// For now, execute from the first start node
-	// TODO: Support parallel execution of multiple start nodes
 	startNodeID := startNodes[0]
 
-	// Execute using pointer-based traversal
 	if err := gr.executeFromNode(ctx, startNodeID); err != nil {
 		finalStatus = storage.ExecutionStatusFailed
 		msg := err.Error()
@@ -181,8 +225,30 @@ func (gr *GraphRunner) executeNode(ctx context.Context, node *Node) (*BlockResul
 	nodeCtx, cancel := context.WithTimeout(ctx, nodeTimeout)
 	defer cancel()
 
+	nodeStartTime := time.Now()
+
+	gr.emitEvent(Event{
+		Type:        EventTypeNodeStart,
+		Timestamp:   nodeStartTime,
+		ExecutionID: gr.executionID,
+		WorkflowID:  gr.workflow.ID,
+		NodeID:      node.ID,
+		Data: NodeStartData{
+			NodeType: node.Type,
+			Config:   node.Config,
+		},
+	})
+
 	resolvedConfig, err := ResolveVariables(node.Config, gr.ctx)
 	if err != nil {
+		gr.emitEvent(Event{
+			Type:        EventTypeNodeError,
+			Timestamp:   time.Now(),
+			ExecutionID: gr.executionID,
+			WorkflowID:  gr.workflow.ID,
+			NodeID:      node.ID,
+			Error:       fmt.Errorf("failed to resolve variables: %w", err),
+		})
 		return nil, fmt.Errorf("failed to resolve variables: %w", err)
 	}
 
@@ -192,16 +258,53 @@ func (gr *GraphRunner) executeNode(ctx context.Context, node *Node) (*BlockResul
 
 	rawResult, err := gr.bunRunner.ExecuteNode(nodeCtx, node, input)
 	if err != nil {
+		var nodeErr error
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(nodeCtx.Err(), context.DeadlineExceeded) {
-			return nil, fmt.Errorf("node %s execution timed out after %s: %w", node.ID, nodeTimeout, err)
+			nodeErr = fmt.Errorf("node %s execution timed out after %s: %w", node.ID, nodeTimeout, err)
+		} else if errors.Is(err, context.Canceled) || errors.Is(nodeCtx.Err(), context.Canceled) {
+			nodeErr = fmt.Errorf("node %s execution canceled: %w", node.ID, err)
+		} else {
+			nodeErr = err
 		}
-		if errors.Is(err, context.Canceled) || errors.Is(nodeCtx.Err(), context.Canceled) {
-			return nil, fmt.Errorf("node %s execution canceled: %w", node.ID, err)
-		}
+
+		gr.emitEvent(Event{
+			Type:        EventTypeNodeError,
+			Timestamp:   time.Now(),
+			ExecutionID: gr.executionID,
+			WorkflowID:  gr.workflow.ID,
+			NodeID:      node.ID,
+			Error:       nodeErr,
+		})
+		return nil, nodeErr
+	}
+
+	result, err := gr.parseBlockResult(rawResult)
+	if err != nil {
+		gr.emitEvent(Event{
+			Type:        EventTypeNodeError,
+			Timestamp:   time.Now(),
+			ExecutionID: gr.executionID,
+			WorkflowID:  gr.workflow.ID,
+			NodeID:      node.ID,
+			Error:       err,
+		})
 		return nil, err
 	}
 
-	return gr.parseBlockResult(rawResult)
+	gr.emitEvent(Event{
+		Type:        EventTypeNodeComplete,
+		Timestamp:   time.Now(),
+		ExecutionID: gr.executionID,
+		WorkflowID:  gr.workflow.ID,
+		NodeID:      node.ID,
+		Data: NodeCompleteData{
+			Duration: time.Since(nodeStartTime),
+			Result:   result.Data,
+			Port:     result.Port,
+		},
+	})
+
+	return result, nil
 }
 
 // parseBlockResult converts raw Bun output to BlockResult with port routing.
