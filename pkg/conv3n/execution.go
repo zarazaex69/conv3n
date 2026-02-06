@@ -42,7 +42,7 @@ func (h *ExecutionHandle) ID() string {
 }
 
 func (h *ExecutionHandle) Stop() error {
-	if err := h.registry.Stop(h.id); err != nil {
+	if err := h.registry.Cancel(h.id); err != nil {
 		return fmt.Errorf("failed to stop execution: %w", err)
 	}
 

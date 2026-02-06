@@ -31,12 +31,7 @@ func NewWorkflowRunner(ctx *ExecutionContext, blocksDir string, store storage.St
 func (wr *WorkflowRunner) LoadBlocks() error {
 	return wr.bunRunner.LoadBlocks()
 }
-func (wr *WorkflowRunner) LoadBlocks() error {
-	return wr.bunRunner.LoadBlocks()
-}
 
-// Run executes the workflow using the new graph-based engine.
-// Automatically detects workflow format and uses appropriate execution strategy.
 func (wr *WorkflowRunner) Run(ctx context.Context, workflow Workflow) error {
 	log.Printf("Starting workflow: %s (%s)", workflow.Name, workflow.ID)
 

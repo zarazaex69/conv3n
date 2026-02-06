@@ -40,7 +40,7 @@ func New(cfg *Config) (*Runtime, error) {
 		cfg = DefaultConfig()
 	}
 
-	store, err := storage.NewSQLiteStorage(cfg.StoragePath)
+	store, err := storage.NewSQLite(cfg.StoragePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
@@ -65,9 +65,7 @@ func (r *Runtime) Start(ctx context.Context) error {
 		return ErrAlreadyRunning
 	}
 
-	r.pool.Start(ctx)
 	r.running = true
-
 	return nil
 }
 
@@ -79,8 +77,8 @@ func (r *Runtime) Stop(ctx context.Context) error {
 		return ErrNotRunning
 	}
 
-	r.pool.Stop()
-	r.registry.StopAll()
+	r.pool.Wait()
+	r.registry.CancelAll()
 	r.running = false
 
 	return nil
@@ -121,18 +119,31 @@ func (r *Runtime) Execute(ctx context.Context, wf *Workflow, input map[string]in
 		events:   r.config.EventHandler,
 	}
 
-	r.registry.Register(execID, execCtx)
-
-	task := &engine.WorkflowTask{
-		Workflow: engineWf,
-		Runner:   runner,
-		Context:  ctx,
-	}
-
-	r.pool.Submit(task)
+	execContext, cancel := context.WithCancel(ctx)
+	r.registry.Register(execID, cancel)
 
 	if r.config.EventHandler != nil {
 		r.config.EventHandler.OnExecutionStart(execID, engineWf.ID)
+	}
+
+	err = r.pool.Execute(execContext, func() error {
+		defer r.registry.Unregister(execID)
+
+		if err := runner.Run(execContext, *engineWf); err != nil {
+			if r.config.EventHandler != nil {
+				r.config.EventHandler.OnExecutionComplete(execID, err)
+			}
+			return err
+		}
+
+		if r.config.EventHandler != nil {
+			r.config.EventHandler.OnExecutionComplete(execID, nil)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit execution: %w", err)
 	}
 
 	return handle, nil

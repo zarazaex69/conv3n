@@ -1,18 +1,9 @@
-APP_NAME := conv3n
 GO_CMD  := go
 BUN_CMD := bun
 
-BIN_DIR := bin
+.PHONY: all test install deps clean blocks-generate blocks-test
 
-.PHONY: all build test install deps clean blocks-generate blocks-test
-
-all: build
-
-build:
-	@echo "[build] Building $(APP_NAME) for current platform..."
-	@mkdir -p $(BIN_DIR)
-	@$(GO_CMD) build -o $(BIN_DIR)/$(APP_NAME) ./cmd/conv3n
-	@echo "$(BIN_DIR)/$(APP_NAME) built successfully"
+all: test
 
 # Run all tests
 test:
@@ -57,9 +48,9 @@ deps:
 	@echo "[deps] JS/TS dependencies installed successfully"
 
 clean:
-	@echo "[clean] Removing build artifacts..."
-	@rm -rf $(BIN_DIR)
-	@echo "[clean] Build artifacts removed successfully"
+	@echo "[clean] Cleaning test artifacts..."
+	@rm -f coverage.out
+	@echo "[clean] Clean completed successfully"
 
 blocks-generate:
 	@echo "[blocks] Generating block manifests..."
