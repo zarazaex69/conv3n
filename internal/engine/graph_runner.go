@@ -254,6 +254,11 @@ func (gr *GraphRunner) executeNode(ctx context.Context, node *Node) (*BlockResul
 
 	input := map[string]interface{}{
 		"config": resolvedConfig,
+		"context": map[string]interface{}{
+			"workflowId":  gr.ctx.WorkflowID,
+			"executionId": gr.ctx.ExecutionID,
+			"variables":   gr.ctx.Variables,
+		},
 	}
 
 	rawResult, err := gr.bunRunner.ExecuteNode(nodeCtx, node, input)
@@ -311,23 +316,25 @@ func (gr *GraphRunner) executeNode(ctx context.Context, node *Node) (*BlockResul
 func (gr *GraphRunner) parseBlockResult(raw interface{}) (*BlockResult, error) {
 	result := &BlockResult{
 		Data: raw,
-		Port: "default", // Default output port
+		Port: "default",
 	}
 
-	// Try to extract port from the result if it's a map
 	if resMap, ok := raw.(map[string]interface{}); ok {
-		// Check if result has explicit port field
 		if port, hasPort := resMap["port"]; hasPort {
 			if portStr, ok := port.(string); ok {
 				result.Port = portStr
 			}
 		}
 
-		// For condition blocks, use the boolean result to determine port
+		if variables, hasVars := resMap["variables"]; hasVars {
+			if err := gr.processVariableCommands(variables); err != nil {
+				return nil, fmt.Errorf("failed to process variable commands: %w", err)
+			}
+		}
+
 		if data, hasData := resMap["data"]; hasData {
 			result.Data = data
 
-			// Check for condition result (true/false routing)
 			if dataMap, ok := data.(map[string]interface{}); ok {
 				if condResult, hasResult := dataMap["result"]; hasResult {
 					if boolResult, ok := condResult.(bool); ok {
@@ -345,7 +352,53 @@ func (gr *GraphRunner) parseBlockResult(raw interface{}) (*BlockResult, error) {
 	return result, nil
 }
 
-// GetResults returns all node results from the execution.
+func (gr *GraphRunner) processVariableCommands(variables interface{}) error {
+	varList, ok := variables.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, v := range varList {
+		cmd, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		action, _ := cmd["action"].(string)
+		name, _ := cmd["name"].(string)
+
+		if name == "" {
+			continue
+		}
+
+		switch action {
+		case "set":
+			value := cmd["value"]
+			options, _ := cmd["options"].(map[string]interface{})
+
+			scope := ScopeExecution
+			var ttl *time.Duration
+
+			if options != nil {
+				if scopeStr, ok := options["scope"].(string); ok {
+					scope = VariableScope(scopeStr)
+				}
+				if ttlSec, ok := options["ttlSeconds"].(float64); ok && ttlSec > 0 {
+					duration := time.Duration(ttlSec) * time.Second
+					ttl = &duration
+				}
+			}
+
+			gr.ctx.VariableStore.Set(gr.ctx.WorkflowID, gr.ctx.ExecutionID, name, value, scope, ttl)
+
+		case "delete":
+			gr.ctx.VariableStore.Delete(gr.ctx.WorkflowID, gr.ctx.ExecutionID, name)
+		}
+	}
+
+	return nil
+}
+
 func (gr *GraphRunner) GetResults() map[string]interface{} {
 	return gr.ctx.Results
 }

@@ -137,23 +137,22 @@ func (w *Workflow) FindOutgoingEdges(nodeID string) []Edge {
 
 // ExecutionContext holds the state of a running workflow execution.
 type ExecutionContext struct {
-	WorkflowID  string
-	ExecutionID string
-	// Results stores the output of each node by Node ID
-	Results map[string]interface{}
-	// Variables stores user-defined variables (mutable state)
-	Variables map[string]interface{}
-	// TriggerData stores the payload from the trigger (e.g. webhook body)
-	TriggerData map[string]interface{}
+	WorkflowID    string
+	ExecutionID   string
+	Results       map[string]interface{}
+	Variables     map[string]interface{}
+	TriggerData   map[string]interface{}
+	VariableStore *VariableStore
 }
 
 // NewExecutionContext creates a new context for a workflow execution.
 func NewExecutionContext(workflowID string) *ExecutionContext {
 	return &ExecutionContext{
-		WorkflowID:  workflowID,
-		Results:     make(map[string]interface{}),
-		Variables:   make(map[string]interface{}),
-		TriggerData: make(map[string]interface{}),
+		WorkflowID:    workflowID,
+		Results:       make(map[string]interface{}),
+		Variables:     make(map[string]interface{}),
+		TriggerData:   make(map[string]interface{}),
+		VariableStore: NewVariableStore(),
 	}
 }
 
@@ -170,10 +169,13 @@ func (ctx *ExecutionContext) GetResult(nodeID string) interface{} {
 // SetVar sets a user-defined variable.
 func (ctx *ExecutionContext) SetVar(name string, value interface{}) {
 	ctx.Variables[name] = value
+	ctx.VariableStore.Set(ctx.WorkflowID, ctx.ExecutionID, name, value, ScopeExecution, nil)
 }
 
-// GetVar retrieves a user-defined variable.
 func (ctx *ExecutionContext) GetVar(name string) interface{} {
+	if value, ok := ctx.VariableStore.Get(ctx.WorkflowID, ctx.ExecutionID, name); ok {
+		return value
+	}
 	return ctx.Variables[name]
 }
 

@@ -1,7 +1,7 @@
 GO_CMD  := go
 BUN_CMD := bun
 
-.PHONY: all test install deps clean blocks-generate blocks-test
+.PHONY: all test install deps clean blocks-generate blocks-test test-v2 run-production bench
 
 all: test
 
@@ -61,3 +61,17 @@ blocks-test:
 	@echo "[blocks] Running block tests..."
 	@$(BUN_CMD) test pkg/blocks
 	@echo "[blocks] Block tests completed successfully"
+
+test-v2:
+	@echo "[test-v2] Running V2 tests..."
+	@$(GO_CMD) test -v ./internal/engine -run "TestCircuitBreaker|TestRetry"
+	@echo "[test-v2] V2 tests completed successfully"
+
+run-production:
+	@echo "[production] Starting production example..."
+	@$(GO_CMD) run examples/production_ready/main.go
+
+bench:
+	@echo "[bench] Running benchmarks..."
+	@$(GO_CMD) test -bench=. -benchmem ./internal/engine
+	@echo "[bench] Benchmarks completed"

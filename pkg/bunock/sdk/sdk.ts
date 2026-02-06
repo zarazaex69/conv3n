@@ -9,6 +9,13 @@
 export interface BlockInput<TConfig = unknown> {
     config: TConfig;
     input?: unknown;
+    context?: ExecutionContextData;
+}
+
+export interface ExecutionContextData {
+    workflowId: string;
+    executionId: string;
+    variables?: Record<string, unknown>;
 }
 
 /**
@@ -18,7 +25,10 @@ export interface BlockInput<TConfig = unknown> {
 export interface BlockOutput<TData = unknown> {
     data: TData;
     port: string;
+    variables?: VariableCommand[];
 }
+
+import type { VariableCommand } from "./variables.ts";
 
 /**
  * Error details structure
@@ -54,11 +64,8 @@ export interface ErrorDetails {
  * ```
  */
 export abstract class Block<TConfig, TOutput> {
-    /**
-     * Validate the configuration object
-     * Should throw an error if validation fails
-     * Use TypeScript assertion signature for type narrowing
-     */
+    protected variables = new VariableManager();
+
     abstract validate(config: unknown): asserts config is TConfig;
 
     /**
@@ -113,7 +120,11 @@ export abstract class Block<TConfig, TOutput> {
      * @param port - Output port name (for routing in workflow graph)
      */
     protected async writeOutput(data: TOutput, port: string): Promise<void> {
-        const output: BlockOutput<TOutput> = { data, port };
+        const output: BlockOutput<TOutput> = { 
+            data, 
+            port,
+            variables: this.variables.getCommands(),
+        };
         await Bun.write(Bun.stdout, JSON.stringify(output));
     }
 
@@ -304,3 +315,6 @@ export function isBlockOutput(value: unknown): value is BlockOutput {
 export * from "./decorators.ts";
 export * from "./schema.ts";
 export * from "./trigger.ts";
+export * from "./variables.ts";
+
+import { VariableManager } from "./variables.ts";
