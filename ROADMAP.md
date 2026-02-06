@@ -72,33 +72,9 @@
     - [ ] Observability endpoints (Prometheus metrics, structured logs).
     - [ ] CLI utility for migrations, workflow import/export, backups.
 
-## Phase 4. Studio & UX (no-code environment)
-1.  **Visual Builder**
-    - [ ] Drag-n-drop canvas with live validation.
-    - [ ] Config inspector, live preview of node results.
-2.  **Debugger & Playback**
-    - [ ] Step-by-step execution playback, context viewing.
-    - [ ] Breakpoints and conditional stops on nodes.
-3.  **Template Gallery**
-    - [ ] Set of ready-made workflows (API proxy, ETL, cron jobs, AI pipelines).
-4.  **Education Layer**
-    - [ ] Interactive "Scratch for adults" lessons: blocks as constructors, hints.
-
-## Phase 5. Ecosystem and Community
-1.  **Marketplace (optional offline)**
-    - [ ] Repository of blocks/triggers (git-based), manual moderation.
-    - [ ] Versioning and block compatibility.
-2.  **Community Tooling**
-    - [ ] Documentation for creating blocks, best practices.
-    - [ ] Project showcase, examples of production use.
-3.  **Sustainability**
-    - [ ] RFC process, roadmap review every 6 months.
-    - [ ] Release train policy (LTS/edge versions).
-
 ---
 
 ## Final State
 -   **Best no-code runtime**: Go speed, Bun flexibility, full openness.
--   **n8n + Scratch experience**: visual builder, rich set of blocks, support for learning and experimentation.
 -   **Production-grade**: triggers, API, observability, retries, scalability.
 -   **0 monetization**: all functionality available for free under BSD, no donations accepted.
