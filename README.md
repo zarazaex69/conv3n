@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo/fully_banner.png" alt="Conv3n" width="400"/>
+  <img src="assets/logo.png" alt="Conv3n" width="400"/>
 </div>
 
 <div align="center">
