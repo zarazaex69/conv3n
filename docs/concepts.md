@@ -122,12 +122,7 @@ variables.setExecution("temp", data)
 
 ### Runtime Versions
 
-**Runtime (v1):**
-- Basic workflow execution
-- Simple worker pool
-- Suitable for development
-
-**RuntimeV2 (Production):**
+**Runtime (Production):**
 - Advanced worker pool with health checks
 - Circuit breaker + retry logic
 - Graceful shutdown
@@ -135,7 +130,7 @@ variables.setExecution("temp", data)
 - Rate limiting
 
 ```go
-runtime, err := conv3n.NewV2(cfg)
+runtime, err := conv3n.New(cfg)
 ```
 
 ### Execution Lifecycle
@@ -188,12 +183,35 @@ cfg.WorkerPoolSize = 8
 
 ### Observability
 
-RuntimeV2 provides built-in observability:
+Runtime provides built-in observability:
 
 ```go
 health := runtime.Health(ctx)
 metrics := runtime.Metrics()
 traces := runtime.Traces()
+```
+
+### Execution Management
+
+Query and manage executions:
+
+```go
+status, err := runtime.GetExecution(ctx, executionID)
+
+executions, err := runtime.ListExecutions(ctx, workflowID, 10)
+
+handle, err := runtime.Execute(ctx, wf, nil)
+if err := handle.Wait(ctx); err != nil {
+    log.Printf("Execution failed: %v", err)
+}
+```
+
+### Graceful Shutdown
+
+Wait for shutdown signals:
+
+```go
+runtime.WaitForShutdown(ctx)
 ```
 
 <div align="center">

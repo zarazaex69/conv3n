@@ -66,7 +66,7 @@ if (import.meta.main) {
 ### Schema-Based Validation
 
 ```typescript
-import { Block, createSchemaValidator, CommonSchemas } from "#sdk";
+import { Block, createSchemaValidator } from "#sdk";
 
 interface HttpConfig {
     url: string;
@@ -80,7 +80,10 @@ interface HttpOutput {
 
 class HttpBlock extends Block<HttpConfig, HttpOutput> {
     private schema = {
-        url: CommonSchemas.url,
+        url: {
+            type: 'string' as const,
+            validate: (v: unknown) => typeof v === 'string' && v.startsWith('http'),
+        },
         timeout: {
             type: 'number' as const,
             default: 5000,
@@ -136,16 +139,20 @@ class CheckBlock extends Block<CheckConfig, CheckOutput> {
 ### Timeout and Retry
 
 ```typescript
-import { Block, executeWithTimeoutAndRetry } from "#sdk";
+import { Block, executeWithTimeout, withRetry } from "#sdk";
 
 class ResilientBlock extends Block<Config, Output> {
     async execute(config: Config): Promise<Output> {
-        return await executeWithTimeoutAndRetry(
+        return await withRetry(
             async () => {
-                const response = await fetch(config.url);
-                return { data: await response.json() };
+                return await executeWithTimeout(
+                    async () => {
+                        const response = await fetch(config.url);
+                        return { data: await response.json() };
+                    },
+                    5000
+                );
             },
-            5000,
             { attempts: 3, backoff: 'exponential' }
         );
     }

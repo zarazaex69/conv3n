@@ -47,12 +47,18 @@ abstract class Trigger<TConfig> {
 
 **Schema Validation:**
 ```typescript
-import { createSchemaValidator, CommonSchemas } from "#sdk";
+import { createSchemaValidator } from "#sdk";
 
 const schema = {
-    url: CommonSchemas.url,
-    port: CommonSchemas.port,
-    email: CommonSchemas.email,
+    url: {
+        type: 'string' as const,
+        validate: (v: unknown) => typeof v === 'string' && v.startsWith('http'),
+    },
+    port: {
+        type: 'number' as const,
+        default: 3000,
+        validate: (v: unknown) => typeof v === 'number' && v > 0 && v < 65536,
+    },
 };
 
 validate = createSchemaValidator<Config>(schema);
@@ -60,7 +66,7 @@ validate = createSchemaValidator<Config>(schema);
 
 **Decorators:**
 ```typescript
-import { withTimeout, withRetry, executeWithTimeoutAndRetry } from "#sdk";
+import { withTimeout, withRetry, executeWithTimeout } from "#sdk";
 
 const result = await withTimeout(promise, { ms: 5000 });
 
@@ -69,7 +75,7 @@ const result = await withRetry(fn, {
     backoff: 'exponential' 
 });
 
-const result = await executeWithTimeoutAndRetry(fn, 5000, { attempts: 3 });
+const result = await executeWithTimeout(fn, 5000);
 ```
 
 **Variables:**
@@ -83,6 +89,17 @@ variables.setWorkflow("counter", 0);
 variables.setExecution("temp", data);
 
 const commands = variables.getCommands();
+```
+
+**Block with Variables:**
+```typescript
+class MyBlock extends Block<Config, Output> {
+    async execute(config: Config): Promise<Output> {
+        this.variables.setGlobal("counter", 42, 3600);
+        
+        return { result: "success" };
+    }
+}
 ```
 
 **Helpers:**

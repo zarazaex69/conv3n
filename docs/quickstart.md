@@ -35,12 +35,12 @@ import (
 )
 
 func main() {
-    cfg := conv3n.DefaultConfigV2()
+    cfg := conv3n.DefaultConfig()
     cfg.BlocksDir = "pkg/blocks"
     cfg.StoragePath = "conv3n.db"
     cfg.WorkerPoolSize = 4
 
-    runtime, err := conv3n.NewV2(cfg)
+    runtime, err := conv3n.New(cfg)
     if err != nil {
         log.Fatal(err)
     }
@@ -104,7 +104,7 @@ go run main.go
 
 ### What Just Happened?
 
-1. Created a RuntimeV2 instance with default config
+1. Created a Runtime instance with default config
 2. Built a workflow with 2 nodes: HTTP request → Transform
 3. Executed the workflow and waited for completion
 4. Retrieved the result from the transform node

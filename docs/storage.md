@@ -17,42 +17,53 @@ Conv3n uses SQLite for execution history and workflow persistence.
 
 ### Execution History
 
-Every workflow execution is tracked:
+Query executions via Runtime API:
 
 ```go
-store, err := storage.NewSQLite("conv3n.db")
+runtime, err := conv3n.New(cfg)
 if err != nil {
     log.Fatal(err)
 }
-defer store.Close()
+defer runtime.Close()
 
-executions, err := store.ListExecutions(ctx, workflowID, 10)
+executions, err := runtime.ListExecutions(ctx, workflowID, 10)
 for _, exec := range executions {
     log.Printf("Execution: %s, Status: %s, Started: %s",
         exec.ID, exec.Status, exec.StartedAt)
 }
+
+status, err := runtime.GetExecution(ctx, executionID)
+if err != nil {
+    log.Fatal(err)
+}
+log.Printf("Status: %s", status.Status)
 ```
 
 ### Execution Status
 
 ```go
-type ExecutionStatus string
+type ExecutionState string
 
 const (
-    ExecutionStatusRunning   ExecutionStatus = "running"
-    ExecutionStatusCompleted ExecutionStatus = "completed"
-    ExecutionStatusFailed    ExecutionStatus = "failed"
-    ExecutionStatusCancelled ExecutionStatus = "cancelled"
+    ExecutionStatePending   ExecutionState = "pending"
+    ExecutionStateRunning   ExecutionState = "running"
+    ExecutionStateCompleted ExecutionState = "completed"
+    ExecutionStateFailed    ExecutionState = "failed"
+    ExecutionStateCancelled ExecutionState = "cancelled"
 )
 ```
 
 ### Node Results
 
-Retrieve results from specific nodes:
+Retrieve results from specific nodes via ExecutionHandle:
 
 ```go
 handle, err := runtime.Execute(ctx, wf, nil)
 if err != nil {
+    log.Fatal(err)
+}
+
+if err := handle.Wait(ctx); err != nil {
     log.Fatal(err)
 }
 
@@ -137,10 +148,10 @@ CREATE TABLE workflows (
 ### Query Execution History
 
 ```go
-execs, err := store.ListExecutions(ctx, workflowID, 100)
+executions, err := runtime.ListExecutions(ctx, workflowID, 100)
 
-for _, exec := range execs {
-    if exec.Status == storage.ExecutionStatusFailed {
+for _, exec := range executions {
+    if exec.Status == conv3n.ExecutionStateFailed {
         log.Printf("Failed execution: %s, Error: %s",
             exec.ID, *exec.Error)
     }
