@@ -7,7 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/zarazaex69/conv3n/internal/api"
@@ -147,8 +149,36 @@ func runServer(blocksDir string, store storage.Storage) {
 	fmt.Printf("Listening on http://localhost:8080\n")
 	fmt.Printf("Blocks loaded from: %s\n", blocksDir)
 
-	if err := http.ListenAndServe(":8080", mux); err != nil {
-		log.Fatal(err)
+	httpServer := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- httpServer.ListenAndServe()
+	}()
+
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-serverErrors:
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	case sig := <-shutdown:
+		fmt.Printf("\nReceived signal %v, shutting down gracefully...\n", sig)
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+			httpServer.Close()
+		}
+
+		fmt.Println("Server stopped")
 	}
 }
 
