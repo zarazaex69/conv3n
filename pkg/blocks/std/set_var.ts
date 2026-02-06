@@ -1,23 +1,35 @@
-/**
- * SetVar block - Sets a user-defined variable in the execution context.
- * Variables persist across nodes and can be accessed via {{ $vars.name }} syntax.
- */
+import { Block, BlockHelpers } from "#sdk";
 
-export default async function setVar(input: any): Promise<any> {
-    const { name, value } = input.config;
+interface SetVarConfig {
+    name: string;
+    value: unknown;
+}
 
-    if (!name || typeof name !== "string") {
-        throw new Error("Variable name is required and must be a string");
+interface SetVarOutput {
+    action: string;
+    name: string;
+    value: unknown;
+}
+
+export class SetVarBlock extends Block<SetVarConfig, SetVarOutput> {
+    validate(config: unknown): asserts config is SetVarConfig {
+        BlockHelpers.assertObject(config);
+        BlockHelpers.assertNonEmptyString(config, "name");
+
+        if (!("value" in config)) {
+            throw new Error("Missing required field: value");
+        }
     }
 
-    // Return special action marker for Go engine to process
-    // The actual variable setting happens in the Go orchestrator
-    return {
-        data: {
+    async execute(config: SetVarConfig): Promise<SetVarOutput> {
+        return {
             action: "set_var",
-            name,
-            value,
-        },
-        port: "default",
-    };
+            name: config.name,
+            value: config.value,
+        };
+    }
+}
+
+if (import.meta.main) {
+    new SetVarBlock().run();
 }

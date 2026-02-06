@@ -1,210 +1,142 @@
-// pkg/blocks/std/file.ts
-// Standard Block: File Operations
-// Provides file system operations: read, write, delete, exists
+import { Block, BlockHelpers } from "#sdk";
 
-import { stdin, stdout } from "bun";
+type FileOperation =
+    | { type: "read"; format?: "text" | "json" | "bytes" }
+    | { type: "write"; content: string | object }
+    | { type: "delete" }
+    | { type: "exists" };
 
-
-
-// Type definitions for file operations
-export type FileOperation =
-    | { type: 'read'; format?: 'text' | 'json' | 'bytes' }
-    | { type: 'write'; content: string | object }
-    | { type: 'delete' }
-    | { type: 'exists' };
-
-export interface FileConfig {
-    path: string;              // Absolute or relative file path
-    operation: FileOperation;  // Operation to perform
+interface FileConfig {
+    path: string;
+    operation: FileOperation;
 }
 
-export interface FileInput {
-    config: FileConfig;
-    input?: any;               // Data from previous blocks
-}
+type FileOutput =
+    | { operation: "read"; data: string | object | Uint8Array; size: number }
+    | { operation: "write"; path: string; bytesWritten: number }
+    | { operation: "delete"; path: string; deleted: boolean }
+    | { operation: "exists"; path: string; exists: boolean };
 
-export type FileOutput =
-    | { operation: 'read'; data: string | object | Uint8Array; size: number }
-    | { operation: 'write'; path: string; bytesWritten: number }
-    | { operation: 'delete'; path: string; deleted: boolean }
-    | { operation: 'exists'; path: string; exists: boolean };
+export class FileBlock extends Block<FileConfig, FileOutput> {
+    validate(config: unknown): asserts config is FileConfig {
+        BlockHelpers.assertObject(config);
+        BlockHelpers.assertNonEmptyString(config, "path");
+        BlockHelpers.assertField(config, "operation", "object");
 
-// Validate configuration
-export function validateConfig(config: any): void {
-    if (!config) {
-        throw new Error("Missing required config");
-    }
+        const op = config.operation as Record<string, unknown>;
+        BlockHelpers.assertField(op, "type", "string");
 
-    if (!config.path || typeof config.path !== 'string') {
-        throw new Error("Config 'path' must be a non-empty string");
-    }
+        const validTypes = ["read", "write", "delete", "exists"];
+        if (!validTypes.includes(op.type as string)) {
+            throw new Error(`Invalid operation type: ${op.type}. Must be one of: ${validTypes.join(", ")}`);
+        }
 
-    if (!config.operation) {
-        throw new Error("Missing required config: operation");
-    }
+        if (op.type === "read" && "format" in op && op.format !== undefined) {
+            const validFormats = ["text", "json", "bytes"];
+            if (!validFormats.includes(op.format as string)) {
+                throw new Error(`Invalid read format: ${op.format}. Must be one of: ${validFormats.join(", ")}`);
+            }
+        }
 
-    const op = config.operation;
-    if (!op.type) {
-        throw new Error("Operation must have a 'type' field");
-    }
-
-    const validTypes = ['read', 'write', 'delete', 'exists'];
-    if (!validTypes.includes(op.type)) {
-        throw new Error(`Invalid operation type: ${op.type}. Must be one of: ${validTypes.join(', ')}`);
-    }
-
-    // Validate operation-specific fields
-    if (op.type === 'read' && op.format !== undefined) {
-        const validFormats = ['text', 'json', 'bytes'];
-        if (!validFormats.includes(op.format)) {
-            throw new Error(`Invalid read format: ${op.format}. Must be one of: ${validFormats.join(', ')}`);
+        if (op.type === "write" && !("content" in op)) {
+            throw new Error("Write operation requires 'content' field");
         }
     }
 
-    if (op.type === 'write' && op.content === undefined) {
-        throw new Error("Write operation requires 'content' field");
-    }
-}
+    async execute(config: FileConfig): Promise<FileOutput> {
+        const { path, operation } = config;
 
-// Execute read operation
-export async function executeRead(path: string, format: 'text' | 'json' | 'bytes' = 'text'): Promise<any> {
-    const file = Bun.file(path);
-
-    // Check if file exists
-    const exists = await file.exists();
-    if (!exists) {
-        throw new Error(`File not found: ${path}`);
-    }
-
-    // Get file size for output
-    const size = file.size;
-
-    // Read file based on format
-    let data: any;
-    try {
-        switch (format) {
-            case 'text':
-                data = await file.text();
-                break;
-            case 'json':
-                data = await file.json();
-                break;
-            case 'bytes':
-                data = await file.bytes();
-                break;
+        switch (operation.type) {
+            case "read":
+                return await this.executeRead(path, operation.format || "text");
+            case "write":
+                return await this.executeWrite(path, operation.content);
+            case "delete":
+                return await this.executeDelete(path);
+            case "exists":
+                return await this.executeExists(path);
+            default:
+                throw new Error(`Unknown operation type: ${(operation as any).type}`);
         }
-    } catch (error: any) {
-        if (format === 'json') {
-            throw new Error(`Failed to parse JSON from file: ${error.message}`);
-        }
-        throw new Error(`Failed to read file: ${error.message}`);
     }
 
-    return { data, size };
-}
-
-// Execute write operation
-export async function executeWrite(path: string, content: string | object): Promise<{ path: string; bytesWritten: number }> {
-    try {
-        // Convert object to JSON string if needed
-        const writeContent = typeof content === 'object'
-            ? JSON.stringify(content, null, 2)
-            : content;
-
-        // Write file using Bun.write
-        const bytesWritten = await Bun.write(path, writeContent);
-
-        return { path, bytesWritten };
-    } catch (error: any) {
-        throw new Error(`Failed to write file: ${error.message}`);
-    }
-}
-
-// Execute delete operation
-export async function executeDelete(path: string): Promise<{ path: string; deleted: boolean }> {
-    try {
+    private async executeRead(path: string, format: "text" | "json" | "bytes"): Promise<FileOutput> {
         const file = Bun.file(path);
 
-        // Check if file exists before attempting delete
         const exists = await file.exists();
         if (!exists) {
             throw new Error(`File not found: ${path}`);
         }
 
-        // Delete the file
-        await file.delete();
+        const size = file.size;
 
-        return { path, deleted: true };
-    } catch (error: any) {
-        if (error.message.includes('File not found')) {
-            throw error;
+        try {
+            let data: string | object | Uint8Array;
+            switch (format) {
+                case "text":
+                    data = await file.text();
+                    break;
+                case "json":
+                    data = await file.json();
+                    break;
+                case "bytes":
+                    data = await file.bytes();
+                    break;
+            }
+
+            return { operation: "read", data, size };
+        } catch (error) {
+            if (format === "json") {
+                throw new Error(`Failed to parse JSON from file: ${error instanceof Error ? error.message : String(error)}`);
+            }
+            throw new Error(`Failed to read file: ${error instanceof Error ? error.message : String(error)}`);
         }
-        throw new Error(`Failed to delete file: ${error.message}`);
     }
-}
 
-// Execute exists operation
-export async function executeExists(path: string): Promise<{ path: string; exists: boolean }> {
-    try {
-        const file = Bun.file(path);
-        const exists = await file.exists();
+    private async executeWrite(path: string, content: string | object): Promise<FileOutput> {
+        try {
+            const writeContent = typeof content === "object" ? JSON.stringify(content, null, 2) : content;
 
-        return { path, exists };
-    } catch (error: any) {
-        throw new Error(`Failed to check file existence: ${error.message}`);
-    }
-}
+            const bytesWritten = await Bun.write(path, writeContent);
 
-// Main execution function
-export async function main() {
-    try {
-        // 1. Read input
-        const input: FileInput = await Bun.stdin.json();
-        const { config } = input;
-
-        // 2. Validate config
-        validateConfig(config);
-
-        // 3. Execute operation based on type
-        let result: FileOutput;
-        const { path, operation } = config;
-
-        switch (operation.type) {
-            case 'read': {
-                const format = operation.format || 'text';
-                const { data, size } = await executeRead(path, format);
-                result = { operation: 'read', data, size };
-                break;
-            }
-            case 'write': {
-                const { path: writtenPath, bytesWritten } = await executeWrite(path, operation.content);
-                result = { operation: 'write', path: writtenPath, bytesWritten };
-                break;
-            }
-            case 'delete': {
-                const { path: deletedPath, deleted } = await executeDelete(path);
-                result = { operation: 'delete', path: deletedPath, deleted };
-                break;
-            }
-            case 'exists': {
-                const { path: checkedPath, exists } = await executeExists(path);
-                result = { operation: 'exists', path: checkedPath, exists };
-                break;
-            }
-            default:
-                throw new Error(`Unknown operation type: ${(operation as any).type}`);
+            return { operation: "write", path, bytesWritten };
+        } catch (error) {
+            throw new Error(`Failed to write file: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
 
-        // 4. Write output
-        await Bun.write(Bun.stdout, JSON.stringify(result));
+    private async executeDelete(path: string): Promise<FileOutput> {
+        try {
+            const file = Bun.file(path);
 
-    } catch (error: any) {
-        console.error(`File Block Failed: ${error.message}`);
-        process.exit(1);
+            const exists = await file.exists();
+            if (!exists) {
+                throw new Error(`File not found: ${path}`);
+            }
+
+            await file.delete();
+
+            return { operation: "delete", path, deleted: true };
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("File not found")) {
+                throw error;
+            }
+            throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    private async executeExists(path: string): Promise<FileOutput> {
+        try {
+            const file = Bun.file(path);
+            const exists = await file.exists();
+
+            return { operation: "exists", path, exists };
+        } catch (error) {
+            throw new Error(`Failed to check file existence: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 }
 
-// Only run main if this is the entry point
 if (import.meta.main) {
-    main();
+    new FileBlock().run();
 }

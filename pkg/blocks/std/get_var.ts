@@ -1,25 +1,31 @@
-/**
- * GetVar block - Retrieves a user-defined variable from the execution context.
- * Variables are accessed via {{ $vars.name }} syntax in config.
- */
+import { Block, BlockHelpers } from "#sdk";
 
-export default async function getVar(input: any): Promise<any> {
-    const { name } = input.config;
+interface GetVarConfig {
+    name: string;
+    value?: unknown;
+}
 
-    if (!name || typeof name !== "string") {
-        throw new Error("Variable name is required and must be a string");
+interface GetVarOutput {
+    action: string;
+    name: string;
+    value: unknown;
+}
+
+export class GetVarBlock extends Block<GetVarConfig, GetVarOutput> {
+    validate(config: unknown): asserts config is GetVarConfig {
+        BlockHelpers.assertObject(config);
+        BlockHelpers.assertNonEmptyString(config, "name");
     }
 
-    // The value is resolved by the variable resolver before this block executes
-    // We just pass through the resolved value
-    const value = input.config.value;
-
-    return {
-        data: {
+    async execute(config: GetVarConfig): Promise<GetVarOutput> {
+        return {
             action: "get_var",
-            name,
-            value,
-        },
-        port: "default",
-    };
+            name: config.name,
+            value: config.value,
+        };
+    }
+}
+
+if (import.meta.main) {
+    new GetVarBlock().run();
 }
