@@ -1,4 +1,15 @@
-# CONV3N Block SDK
+<div align="center">
+  <img src="../../../assets/logo.png" alt="Conv3n" width="400"/>
+</div>
+
+<div align="center">
+
+![Golang](https://img.shields.io/badge/-Golang-0D1117?style=flat-square&logo=go&logoColor=00A7D0)
+![TypeScript](https://img.shields.io/badge/-TypeScript-0D1117?style=flat-square&logo=typescript&logoColor=377CC8)
+![Bun](https://img.shields.io/badge/-Bun-0D1117?style=flat-square&logo=Bun&logoColor=F3E6D8)
+![SQLite](https://img.shields.io/badge/-SQLite-0D1117?style=flat-square&logo=sqlite&logoColor=003B57)
+
+</div>
 
 Type-safe SDK for building workflow blocks in the CONV3N engine.
 
@@ -6,7 +17,7 @@ Type-safe SDK for building workflow blocks in the CONV3N engine.
 
 The Block SDK provides a structured, type-safe way to create custom blocks for the CONV3N workflow engine. It handles the stdin/stdout communication protocol automatically, allowing you to focus on implementing your block's core logic.
 
-## Quick Start
+## Fast Start
 
 ### Basic Block Example
 
@@ -385,6 +396,17 @@ if (import.meta.main) {
 }
 ```
 
-## License
 
-BSD License - See LICENSE file for details
+<div align="center">
+
+---
+
+### Contact
+
+Telegram: [zarazaex](https://t.me/zarazaexe)
+<br>
+Email: [zarazaex@tuta.io](mailto:zarazaex@tuta.io)
+<br>
+Site: [zarazaex.xyz](https://zarazaex.xyz)
+
+</div>
