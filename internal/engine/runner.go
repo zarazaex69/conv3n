@@ -9,20 +9,22 @@ import (
 	"path/filepath"
 )
 
-// BunRunner manages the execution of Bun scripts via OS subprocesses.
 type BunRunner struct {
-	// RuntimePath is the path to the bun executable (usually "bun").
 	RuntimePath string
-	// BlocksDir is the base directory where block scripts are located.
-	BlocksDir string
+	BlocksDir   string
+	Registry    *BlockRegistry
 }
 
-// NewBunRunner creates a new runner instance.
 func NewBunRunner(blocksDir string) *BunRunner {
 	return &BunRunner{
 		RuntimePath: "bun",
 		BlocksDir:   blocksDir,
+		Registry:    NewBlockRegistry(blocksDir),
 	}
+}
+
+func (r *BunRunner) LoadBlocks() error {
+	return r.Registry.LoadFromDirectory(r.BlocksDir)
 }
 
 // Execute runs the configured Bun script with the provided input payload.
@@ -94,8 +96,20 @@ func (r *BunRunner) ExecuteNode(ctx context.Context, node *Node, input any) (any
 	return r.Execute(ctx, scriptPath, input)
 }
 
-// getScriptPath returns the script path for a given node type.
 func (r *BunRunner) getScriptPath(nodeType NodeType) string {
+	if nodeType == NodeTypeSetVar || nodeType == NodeTypeGetVar {
+		return ""
+	}
+
+	manifest, ok := r.Registry.Get(nodeType)
+	if !ok {
+		return r.getFallbackPath(nodeType)
+	}
+
+	return manifest.ScriptPath
+}
+
+func (r *BunRunner) getFallbackPath(nodeType NodeType) string {
 	switch nodeType {
 	case NodeTypeHTTPRequest:
 		return filepath.Join(r.BlocksDir, "std", "http_request.ts")
@@ -115,9 +129,6 @@ func (r *BunRunner) getScriptPath(nodeType NodeType) string {
 		return filepath.Join(r.BlocksDir, "std", "database.ts")
 	case NodeTypeWebhook:
 		return filepath.Join(r.BlocksDir, "std", "webhook.ts")
-	case NodeTypeSetVar, NodeTypeGetVar:
-		// Variable blocks are handled natively in Go, no Bun script needed
-		return ""
 	default:
 		return ""
 	}

@@ -8,7 +8,9 @@
     },
     "scripts": {
         "test": "bun test",
-        "test:watch": "bun test --watch"
+        "test:watch": "bun test --watch",
+        "blocks:generate": "bun run pkg/bunock/cli/generate.ts pkg/blocks",
+        "blocks:test": "bun test pkg/blocks"
     },
     "devDependencies": {
         "@types/bun": "latest"

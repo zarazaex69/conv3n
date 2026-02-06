@@ -79,16 +79,20 @@ func printUsage() {
 func runServer(blocksDir string, store storage.Storage) {
 	fmt.Println("Starting Conv3n API Server...")
 
-	// Initialize execution registry for lifecycle management
+	bunRunner := engine.NewBunRunner(blocksDir)
+	if err := bunRunner.LoadBlocks(); err != nil {
+		log.Printf("Warning: failed to load block manifests: %v", err)
+	} else {
+		manifests := bunRunner.Registry.List()
+		fmt.Printf("Loaded %d custom blocks\n", len(manifests))
+	}
+
 	registry := engine.NewExecutionRegistry()
 
-	// Initialize worker pool (limit to 20 concurrent workflows)
 	workerPool := engine.NewWorkerPool(20)
 
-	// Initialize trigger manager
 	triggerManager := engine.NewTriggerManager(store, blocksDir, registry, workerPool)
 
-	// Load existing triggers from storage
 	if err := triggerManager.LoadTriggers(context.Background()); err != nil {
 		log.Printf("Warning: failed to load triggers: %v", err)
 	}
@@ -233,7 +237,6 @@ func enableCors(w http.ResponseWriter) {
 func runCLI(filePath string, blocksDir string, store storage.Storage) {
 	fmt.Printf("Reading workflow from: %s\n", filePath)
 
-	// Read file
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatalf("Failed to read file: %v", err)
@@ -247,8 +250,12 @@ func runCLI(filePath string, blocksDir string, store storage.Storage) {
 	fmt.Println("Starting conv3n (Bunock) Engine...")
 	fmt.Printf("Using Blocks Directory: %s\n", blocksDir)
 
+	bunRunner := engine.NewBunRunner(blocksDir)
+	if err := bunRunner.LoadBlocks(); err != nil {
+		log.Printf("Warning: failed to load block manifests: %v", err)
+	}
+
 	ctx := engine.NewExecutionContext(workflow.ID)
-	// CLI mode doesn't need lifecycle management, pass nil registry
 	runner := engine.NewWorkflowRunner(ctx, blocksDir, store, nil)
 
 	fmt.Printf("Running Workflow: %s\n", workflow.Name)
@@ -280,11 +287,7 @@ func runCLI(filePath string, blocksDir string, store storage.Storage) {
 			fmt.Printf("Block [%s]: Success %v (%.2fms)\n", blockID, success, execTime)
 			fmt.Printf("Data: %+v\n\n", data)
 		} else {
-			// Fallback for unknown structure
 			fmt.Printf("Block [%s]: %+v\n\n", blockID, resMap)
 		}
 	}
-
 }
-
-// btw i want t suicide

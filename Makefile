@@ -4,7 +4,7 @@ BUN_CMD := bun
 
 BIN_DIR := bin
 
-.PHONY: all build test install deps clean
+.PHONY: all build test install deps clean blocks-generate blocks-test
 
 all: build
 
@@ -60,3 +60,13 @@ clean:
 	@echo "[clean] Removing build artifacts..."
 	@rm -rf $(BIN_DIR)
 	@echo "[clean] Build artifacts removed successfully"
+
+blocks-generate:
+	@echo "[blocks] Generating block manifests..."
+	@$(BUN_CMD) run pkg/bunock/cli/generate.ts pkg/blocks
+	@echo "[blocks] Manifests generated successfully"
+
+blocks-test:
+	@echo "[blocks] Running block tests..."
+	@$(BUN_CMD) test pkg/blocks
+	@echo "[blocks] Block tests completed successfully"

@@ -13,7 +13,7 @@
 
 ## About
 
-Conv3n is a lightweight workflow automation engine for neurone engine.
+Conv3n is a lightweight workflow automation enginee.
 
 ## Fast Start
 
@@ -30,7 +30,6 @@ make build
 - **Backend**: Go 1.24+ with SQLite
 - **Runtime**: Bun for custom blocks
 - **SDK**: TypeScript SDK for block development
-
 
 
 <div align="center">
