@@ -31,7 +31,6 @@
     - [X] Idempotency: agreements on de-duplication keys (nodeID + executionID).
 4.  **Storage**
     - [X] Storage interface + SQLite implementation with run history and node results.
-    - [ ] Alternative backends (Postgres, etc.) through the same abstraction.
 
 ## Phase 2. Core API Interface
 1.  **Execution Control**
@@ -53,8 +52,8 @@
     - [ ] Thread-safe operations for concurrent usage
 2.  **Block Development SDK**
     - [X] Block development framework and testing utilities
-    - [ ] Block registration and discovery system
-    - [ ] Custom block development guide
+    - [X] Block registration and discovery system
+    - [X] Custom block development guide
 ---
 
 ## Final State
