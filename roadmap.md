@@ -47,9 +47,9 @@
 
 ## Phase 3. Library Interface
 1.  **Go Package API**
-    - [ ] Clean public interface for embedding (`runtime.New()`, `runtime.Execute()`)
-    - [ ] Configuration struct for runtime behavior
-    - [ ] Thread-safe operations for concurrent usage
+    - [x] Clean public interface for embedding (`runtime.New()`, `runtime.Execute()`)
+    - [x] Configuration struct for runtime behavior
+    - [x] Thread-safe operations for concurrent usage
 2.  **Block Development SDK**
     - [X] Block development framework and testing utilities
     - [X] Block registration and discovery system
