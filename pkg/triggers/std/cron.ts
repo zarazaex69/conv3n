@@ -1,73 +1,45 @@
-/**
- * Cron trigger for Conv3n.
- * Schedules workflow execution based on a cron expression.
- */
+import { Trigger, type TriggerContext, BlockHelpers } from "#sdk";
+import { Cron } from "croner";
 
-import { createTrigger } from "../../sdk/src/trigger";
-import { Cron, type CronJob } from "croner";
-
-interface CronTriggerConfig {
-  schedule: string; // Cron expression, e.g., "* * * * *"
+interface CronTriggerConfig extends Record<string, unknown> {
+    schedule: string;
 }
 
-// Use a variable in the module scope to hold the CronJob instance.
-// This works because `createTrigger` defines a singleton-like behavior for each trigger definition file.
-// The Go orchestrator will spawn a new Bun process for each unique trigger *instance*,
-// ensuring this variable is unique per running trigger.
-let cronJobInstance: CronJob | undefined;
-let currentSchedule: string | undefined;
+class CronTrigger extends Trigger<CronTriggerConfig> {
+    private cronJob: InstanceType<typeof Cron> | null = null;
 
-export default createTrigger<CronTriggerConfig>({
-  id: "std/cron",
-
-  // onStart is called when the trigger is initialized.
-  // It sets up the cron job based on the provided schedule.
-  async onStart(ctx) {
-    const { schedule } = ctx.config;
-
-    if (!schedule) {
-      console.error(
-        `Cron trigger '${this.id}' missing required 'schedule' configuration.`
-      );
-      return;
+    validate(config: unknown): asserts config is CronTriggerConfig {
+        BlockHelpers.assertObject(config);
+        BlockHelpers.assertNonEmptyString(config, "schedule");
     }
 
-    // If there's an existing job, stop it before creating a new one (e.g., if config changes)
-    if (cronJobInstance) {
-      cronJobInstance.stop();
-      console.log(`Stopped previous cron job for '${currentSchedule}'.`);
+    async start(ctx: TriggerContext<CronTriggerConfig>): Promise<void> {
+        const { schedule } = ctx.config;
+
+        try {
+            this.cronJob = new Cron(schedule, async () => {
+                await ctx.fire({
+                    schedule,
+                    timestamp: Date.now(),
+                    triggeredAt: new Date().toISOString()
+                });
+            });
+
+            console.log(`Cron trigger started: ${schedule}`);
+        } catch (error) {
+            throw new Error(`Failed to start cron: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
-    try {
-      // Create a new cron job.
-      // The callback function will be executed according to the schedule.
-      cronJobInstance = new Cron(schedule, async () => {
-        console.log(
-          `Cron trigger '${this.id}' fired for schedule '${schedule}'.`
-        );
-        // Fire the associated workflow.
-        await ctx.fire({ schedule, timestamp: Date.now() });
-      });
-      currentSchedule = schedule; // Store the current schedule for logging/identification
-      console.log(`Cron trigger '${this.id}' started with schedule '${schedule}'.`);
-    } catch (error) {
-      console.error(
-        `Failed to start cron trigger '${this.id}' with schedule '${schedule}':`,
-        error
-      );
+    async stop(ctx: TriggerContext<CronTriggerConfig>): Promise<void> {
+        if (this.cronJob) {
+            this.cronJob.stop();
+            this.cronJob = null;
+            console.log(`Cron trigger stopped: ${ctx.config.schedule}`);
+        }
     }
-  },
+}
 
-  // onStop is called when the trigger is shut down.
-  // It stops the running cron job to prevent further executions.
-  async onStop(ctx) {
-    if (cronJobInstance) {
-      cronJobInstance.stop(); // Stop the croner job.
-      console.log(`Cron trigger '${this.id}' stopped for schedule '${currentSchedule}'.`);
-      cronJobInstance = undefined;
-      currentSchedule = undefined;
-    } else {
-      console.warn(`Cron trigger '${this.id}' had no active job to stop.`);
-    }
-  },
-});
+if (import.meta.main) {
+    new CronTrigger().run();
+}

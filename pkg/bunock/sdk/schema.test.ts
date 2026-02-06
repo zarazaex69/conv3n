@@ -97,12 +97,11 @@ describe("createSchemaValidator", () => {
             timeout: { type: 'number', default: 5000 },
         };
 
-        const validate = createSchemaValidator<MyConfig>(schema);
+        const validate: (config: unknown) => asserts config is MyConfig = createSchemaValidator<MyConfig>(schema);
 
         const config: unknown = { url: "https://example.com" };
         validate(config);
 
-        // After validation, TypeScript knows config is MyConfig
         expect(config.url).toBe("https://example.com");
         expect(config.timeout).toBe(5000);
     });

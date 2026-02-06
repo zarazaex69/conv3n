@@ -301,6 +301,6 @@ export function isBlockOutput(value: unknown): value is BlockOutput {
     );
 }
 
-// Re-export decorators and schema utilities
 export * from "./decorators.ts";
 export * from "./schema.ts";
+export * from "./trigger.ts";

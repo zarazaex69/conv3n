@@ -51,7 +51,7 @@ describe("Block", () => {
     });
 
     test("validate throws on missing field", () => {
-        const block = new TestBlock();
+        const block: TestBlock = new TestBlock();
 
         expect(() => {
             block.validate({});
@@ -59,7 +59,7 @@ describe("Block", () => {
     });
 
     test("validate throws on wrong type", () => {
-        const block = new TestBlock();
+        const block: TestBlock = new TestBlock();
 
         expect(() => {
             block.validate({ value: "test", count: "not a number" });
@@ -67,7 +67,7 @@ describe("Block", () => {
     });
 
     test("validate throws on empty string", () => {
-        const block = new TestBlock();
+        const block: TestBlock = new TestBlock();
 
         expect(() => {
             block.validate({ value: "", count: 1 });

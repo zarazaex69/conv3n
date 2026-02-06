@@ -168,17 +168,14 @@ describe("Transform Block", () => {
 
     describe("combined operations", () => {
         test("should apply multiple operations sequentially", () => {
-            let data = {
+            let data: any = {
                 user: { firstName: "John", lastName: "Doe", age: 30, email: "john@example.com" }
             };
 
-            // Extract user object
             data = applyJSONPath(data, "$.user");
 
-            // Pick only name fields
             data = applyPick(data, ['firstName', 'lastName']);
 
-            // Rename fields
             data = applyRename(data, { firstName: 'first', lastName: 'last' });
 
             expect(data).toEqual({ first: "John", last: "Doe" });

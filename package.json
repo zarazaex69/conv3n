@@ -10,12 +10,14 @@
         "test": "bun test",
         "test:watch": "bun test --watch",
         "blocks:generate": "bun run pkg/bunock/cli/generate.ts pkg/blocks",
-        "blocks:test": "bun test pkg/blocks"
+        "blocks:test": "bun test pkg/blocks",
+        "triggers:test": "bun test pkg/triggers"
     },
     "devDependencies": {
         "@types/bun": "latest"
     },
     "dependencies": {
+        "croner": "^10.0.1",
         "jsonpath-rfc9535": "^1.3.0"
     }
 }
