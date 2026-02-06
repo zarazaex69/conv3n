@@ -43,14 +43,14 @@ type Execution struct {
 
 // Trigger represents a workflow trigger configuration
 type Trigger struct {
-	ID         string
-	WorkflowID string
-	Type       string // cron, interval, webhook, typescript
-	Config     []byte // JSON-encoded trigger config
-	Enabled    bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	FilePath   string // New: Path to the TypeScript trigger file, if Type is 'typescript'
+	ID         string    `json:"id"`
+	WorkflowID string    `json:"workflow_id"`
+	Type       string    `json:"type"`
+	Config     []byte    `json:"config"`
+	Enabled    bool      `json:"enabled"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	FilePath   string    `json:"file_path,omitempty"`
 }
 
 // TriggerExecution represents a single trigger firing event

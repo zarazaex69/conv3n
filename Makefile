@@ -1,7 +1,7 @@
 GO_CMD  := go
 BUN_CMD := bun
 
-.PHONY: all test install deps clean blocks-generate blocks-test test-v2 run-production bench
+.PHONY: all test install deps clean blocks-generate blocks-test test-v2 run-production bench e2e
 
 all: test
 
@@ -11,6 +11,8 @@ test:
 	@$(GO_CMD) test ./...
 	@echo "[test] Running JS/TS tests..."
 	@$(BUN_CMD) run test
+	@echo "[test] Running E2E tests..."
+	@$(GO_CMD) test -v -run TestE2E_FullStack -timeout 60s ./internal/api
 	@echo "[test] All tests completed successfully"
 
 # Run coverage tests
@@ -75,3 +77,8 @@ bench:
 	@echo "[bench] Running benchmarks..."
 	@$(GO_CMD) test -bench=. -benchmem ./internal/engine
 	@echo "[bench] Benchmarks completed"
+
+e2e:
+	@echo "[e2e] Running end-to-end tests..."
+	@$(GO_CMD) test -v -run TestE2E_FullStack -timeout 60s ./internal/api
+	@echo "[e2e] E2E tests completed successfully"

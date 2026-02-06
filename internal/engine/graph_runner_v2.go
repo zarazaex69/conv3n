@@ -264,7 +264,7 @@ func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph,
 	var rawResult any
 
 	cbKey := fmt.Sprintf("node:%s", node.Type)
-	err = RetryWithBackoff(ctx, gr.retryConfig, func(ctx context.Context) (any, error) {
+	rawResult, err = RetryWithBackoff(ctx, gr.retryConfig, func(ctx context.Context) (any, error) {
 		result, err := gr.circuitBreakers.Execute(ctx, cbKey, func() (any, error) {
 			return gr.executeNodeWithWorkerPool(ctx, node, input)
 		})
