@@ -26,18 +26,17 @@ type FireCall struct {
 }
 
 func NewMockTriggerManager() *MockTriggerManager {
-	// Using in-memory sqlite for tests
+
 	store, err := storage.NewSQLite(":memory:")
 	if err != nil {
 		panic(fmt.Sprintf("failed to create mock storage: %v", err))
 	}
-	// The worker pool is necessary for the Fire method to work correctly.
+
 	workerPool := engine.NewWorkerPool(2)
 
 	tm := engine.NewTriggerManager(store, "", nil, workerPool)
 
 	// In a real scenario, you'd stop the worker pool gracefully.
-	// For tests, it's often sufficient to let it run until the test completes.
 
 	return &MockTriggerManager{
 		TriggerManager: tm,
@@ -47,9 +46,9 @@ func NewMockTriggerManager() *MockTriggerManager {
 
 // Fire is a mock implementation that intercepts calls to the real Fire method.
 func (m *MockTriggerManager) Fire(ctx context.Context, triggerID string, payload map[string]interface{}) error {
-	// Record the call for test assertions
+
 	m.fireCalls <- FireCall{TriggerID: triggerID, Payload: payload}
-	// Call the real Fire method to ensure the full flow is tested.
+
 	return m.TriggerManager.Fire(ctx, triggerID, payload)
 }
 
@@ -66,7 +65,7 @@ func setupTestTriggerFile(t *testing.T, content string) string {
 }
 
 const basicTestTrigger = `
-// This is a self-contained JS script that mimics the trigger IPC protocol for testing.
+
 // It avoids any import/module resolution issues during 'go test'.
 const stdin = process.stdin;
 stdin.setEncoding('utf8');
@@ -81,10 +80,10 @@ stdin.on('data', (data) => {
     const msg = JSON.parse(data);
 
     if (msg.type === 'start') {
-      // Received start, so send ready
+
       sendMessage({ type: 'status', status: 'ready' });
     } else if (msg.type === 'invoke') {
-      // Received invoke, send an event back
+
       const requestId = Math.random().toString(36).substring(7);
       sendMessage({
         type: 'event',
@@ -95,7 +94,7 @@ stdin.on('data', (data) => {
       process.exit(0);
     }
   } catch (e) {
-    // Ignore parse errors for this simple test script
+
   }
 });
 `
@@ -168,7 +167,7 @@ func TestTSTriggerRunner_Invoke(t *testing.T) {
 }
 
 const eventFiringTrigger = `
-// This is a self-contained JS script that fires an event on start.
+
 const stdin = process.stdin;
 stdin.setEncoding('utf8');
 
@@ -180,7 +179,7 @@ stdin.on('data', (data) => {
   try {
     const msg = JSON.parse(data);
     if (msg.type === 'start') {
-      // Send ready first
+
       sendMessage({ type: 'status', status: 'ready' });
 
       // Then fire an event
@@ -195,7 +194,7 @@ stdin.on('data', (data) => {
       process.exit(0);
     }
   } catch (e) {
-    // Ignore
+
   }
 });
 `

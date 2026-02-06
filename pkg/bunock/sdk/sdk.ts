@@ -1,6 +1,5 @@
-// pkg/bunock/sdk/sdk.ts
+
 // SDK for building type-safe blocks in the CONV3N workflow engine
-// Provides base classes, utilities, and helpers to simplify block development
 
 /**
  * Standard input structure for all blocks
@@ -85,7 +84,7 @@ export abstract class Block<TConfig, TOutput> {
      */
     async run(): Promise<void> {
         try {
-            // Read input from stdin
+
             const input = await this.readInput();
 
             // Validate configuration
@@ -101,7 +100,7 @@ export abstract class Block<TConfig, TOutput> {
             await this.writeOutput(result, port);
 
         } catch (error) {
-            // Handle errors gracefully
+
             await this.handleError(error);
         }
     }
@@ -183,9 +182,6 @@ export abstract class Block<TConfig, TOutput> {
  * Provides common functions for creating results, validating inputs, etc.
  */
 export class BlockHelpers {
-    /**
-     * Create a success result with specified data and port
-     */
     static createSuccessResult<T>(data: T, port = "default"): BlockOutput<T> {
         return { data, port };
     }

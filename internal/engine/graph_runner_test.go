@@ -12,7 +12,7 @@ import (
 )
 
 func TestGraphRunner(t *testing.T) {
-	// Setup storage
+
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "graph_test.db")
 	store, err := storage.NewSQLite(dbPath)
@@ -22,12 +22,12 @@ func TestGraphRunner(t *testing.T) {
 	defer store.Close()
 
 	// Path to blocks directory (assuming test runs from internal/engine)
-	// We need absolute path to be safe
+
 	absPath, _ := filepath.Abs("../../pkg/blocks")
 	blocksDir := absPath
 
 	t.Run("SimpleConditionWorkflow", func(t *testing.T) {
-		// Create a workflow with a condition node
+
 		// Start -> Condition (true) -> End
 
 		wf := &engine.Workflow{
@@ -101,7 +101,7 @@ func TestGraphRunner(t *testing.T) {
 	})
 
 	t.Run("VariableResolution", func(t *testing.T) {
-		// Workflow using variables
+
 		wf := &engine.Workflow{
 			ID:   "wf-vars",
 			Name: "Variable Workflow",

@@ -103,11 +103,11 @@ describe("Retry utilities", () => {
                 { attempts: 3, backoff: 'exponential', initialDelay: 10 }
             );
         } catch {
-            // Expected to fail
+
         }
 
         const elapsed = Date.now() - startTime;
-        // Should wait: 10ms + 20ms = 30ms minimum
+
         expect(elapsed).toBeGreaterThanOrEqual(25);
         expect(attempts).toBe(3);
     });
@@ -125,11 +125,11 @@ describe("Retry utilities", () => {
                 { attempts: 3, backoff: 'linear', initialDelay: 10 }
             );
         } catch {
-            // Expected to fail
+
         }
 
         const elapsed = Date.now() - startTime;
-        // Should wait: 10ms + 20ms = 30ms minimum
+
         expect(elapsed).toBeGreaterThanOrEqual(25);
         expect(attempts).toBe(3);
     });

@@ -41,12 +41,12 @@ type TriggerRunner interface {
 	Stop() error
 	ID() string
 	Type() TriggerType
-	// Invoke is used by the Go host to send an event to a running TS trigger (e.g., a webhook payload)
+
 	Invoke(ctx context.Context, payload map[string]interface{}) error
 }
 
 // ManagerForRunner defines the interface that runners use to interact with the trigger manager.
-// This is used to break the circular dependency for testing purposes.
+
 type ManagerForRunner interface {
 	Fire(ctx context.Context, triggerID string, payload map[string]interface{}) error
 	GetTrigger(triggerID string) (TriggerRunner, bool)
@@ -85,7 +85,7 @@ func (tm *TriggerManager) LoadTriggers(ctx context.Context) error {
 	log.Printf("Loading %d triggers from storage...", len(triggers))
 
 	for _, t := range triggers {
-		// Parse config
+
 		var config map[string]interface{}
 		if err := json.Unmarshal(t.Config, &config); err != nil {
 			log.Printf("Error parsing config for trigger %s: %v", t.ID, err)
@@ -103,7 +103,7 @@ func (tm *TriggerManager) LoadTriggers(ctx context.Context) error {
 			}
 			runner = NewTSTriggerRunner(t.ID, t.WorkflowID, filePath, config, tm)
 		} else {
-			// Existing Go-native triggers for backward compatibility
+
 			switch TriggerType(t.Type) {
 			case TriggerTypeCron:
 				schedule, ok := config["schedule"].(string)
@@ -195,7 +195,7 @@ func (tr *TSTriggerRunner) Start(ctx context.Context) error {
 	tr.cancelContext = cancel
 
 	// Command to run the TypeScript trigger using Bun
-	// We assume 'bun' is in the PATH and the script expects to be run
+
 	// with 'bun run <script.ts>' which internally calls `runTrigger`.
 	tr.cmd = exec.CommandContext(processCtx, "bun", "run", tr.filePath)
 	tr.cmd.Dir = "." // Run from project root, or specific triggers dir
@@ -293,7 +293,7 @@ func (tr *TSTriggerRunner) Stop() error {
 		}
 	case <-time.After(5 * time.Second):
 		log.Printf("TS trigger %s: timed out waiting for process to exit. Forcing kill.", tr.id)
-		// If Wait() timed out, the process is likely stuck. Kill it forcefully.
+
 		if err := tr.cmd.Process.Kill(); err != nil {
 			log.Printf("TS trigger %s: failed to force kill process: %v", tr.id, err)
 			return fmt.Errorf("failed to kill stuck trigger process %s", tr.id)
@@ -376,7 +376,7 @@ func (tr *TSTriggerRunner) readStdoutLoop(ctx context.Context) {
 			}
 
 		case "event":
-			// A TS trigger wants to fire a workflow
+
 			requestId, rOk := msg["requestId"].(string)
 			payload, pOk := msg["payload"].(map[string]interface{})
 			if !rOk || !pOk {
@@ -399,7 +399,7 @@ func (tr *TSTriggerRunner) readStdoutLoop(ctx context.Context) {
 				if err != nil {
 					replyMsg["error"] = err.Error()
 				} else {
-					// Optionally, if Fire returned a result, include it here.
+
 					// For now, Fire only returns error.
 				}
 				if sendErr := tr.sendToTS(replyMsg); sendErr != nil {
@@ -515,9 +515,9 @@ func (tm *TriggerManager) ExecuteWorkflow(ctx context.Context, workflowID, trigg
 
 // Fire executes a workflow triggered by a trigger with optional payload
 func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload map[string]interface{}) error {
-	// Use WorkerPool to limit concurrency
+
 	return tm.workerPool.Execute(ctx, func() error {
-		// Record trigger execution start
+
 		triggerExec := &storage.TriggerExecution{
 			ID:        fmt.Sprintf("texec_%d", time.Now().UnixNano()),
 			TriggerID: triggerID,
@@ -532,18 +532,18 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 		}
 
 		// Get workflow definition
-		// First get the trigger to find the workflow ID
+
 		triggerRunner, exists := tm.GetTrigger(triggerID)
 		if !exists {
 			return fmt.Errorf("trigger not found: %s", triggerID)
 		}
-		// Use triggerRunner to avoid unused variable error (though we don't strictly need it if we fetch from DB)
+
 		_ = triggerRunner
 
 		// We need to access the workflow ID from the runner.
-		// Since TriggerRunner interface doesn't expose WorkflowID directly (it should),
+
 		// we might need to fetch the trigger from DB or cast the runner.
-		// For now, let's fetch from DB to be safe and get fresh config.
+
 		trigger, err := tm.Store.GetTrigger(ctx, triggerID)
 		if err != nil {
 			triggerExec.Status = "failed"
@@ -574,7 +574,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 
 		// Create execution context
 		execCtx := NewExecutionContext(wf.ID)
-		// Inject trigger payload into context if available
+
 		if payload != nil {
 			execCtx.TriggerData = payload
 		}
@@ -766,13 +766,13 @@ func (wt *WebhookTrigger) Invoke(ctx context.Context, payload map[string]interfa
 }
 
 func (wt *WebhookTrigger) Start(ctx context.Context) error {
-	// Webhook trigger is passive, just log startup
+
 	log.Printf("Webhook trigger started: %s (waiting for POST /api/webhooks/%s)", wt.id, wt.id)
 	return nil
 }
 
 func (wt *WebhookTrigger) Stop() error {
-	// Nothing to stop for passive trigger
+
 	log.Printf("Webhook trigger stopped: %s", wt.id)
 	return nil
 }

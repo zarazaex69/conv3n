@@ -25,7 +25,7 @@ func (sm *StateManager) GetResult(blockID string) interface{} {
 
 // PrepareInput creates the input payload for a block, resolving any variables in the config.
 func (sm *StateManager) PrepareInput(block Block) (map[string]interface{}, error) {
-	// Resolve variables in the config
+
 	// We pass the entire ExecutionContext for access to both Results and Variables
 	resolvedConfig, err := ResolveVariables(block.Config, sm.ctx)
 	if err != nil {
@@ -34,7 +34,7 @@ func (sm *StateManager) PrepareInput(block Block) (map[string]interface{}, error
 
 	return map[string]interface{}{
 		"config": resolvedConfig,
-		// We also pass the full context if the block needs it (e.g. custom code)
+
 		// "context": sm.ctx.Results,
 	}, nil
 }

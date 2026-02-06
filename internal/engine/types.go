@@ -3,14 +3,14 @@ package engine
 import "fmt"
 
 // =============================================================================
-// NODE TYPES
+
 // =============================================================================
 
 // NodeType defines the type of the node (e.g., "std/http_request", "trigger/http").
 type NodeType string
 
 const (
-	// Action nodes (execute and exit)
+
 	NodeTypeHTTPRequest NodeType = "std/http_request"
 	NodeTypeCustomCode  NodeType = "custom/code"
 	NodeTypeCondition   NodeType = "std/condition"
@@ -41,7 +41,7 @@ func (nt NodeType) IsTrigger() bool {
 }
 
 // =============================================================================
-// GRAPH STRUCTURES
+
 // =============================================================================
 
 // Position represents the visual position of a node in the editor.
@@ -60,7 +60,7 @@ type Node struct {
 }
 
 // Edge represents a connection between two nodes.
-// Supports multiple output ports (e.g., "true"/"false" for conditions).
+
 type Edge struct {
 	ID           string `json:"id"`
 	Source       string `json:"source"`                 // Source node ID
@@ -70,11 +70,11 @@ type Edge struct {
 }
 
 // =============================================================================
-// WORKFLOW (Graph-based)
+
 // =============================================================================
 
 // Workflow represents the entire workflow as a graph of nodes and edges.
-// This is the new graph-based structure replacing the linear []Block array.
+
 type Workflow struct {
 	ID    string          `json:"id"`
 	Name  string          `json:"name"`
@@ -107,11 +107,11 @@ func (w *Workflow) FindStartNodes() []string {
 }
 
 // FindNextNode finds the next node ID by following an edge from the given node and port.
-// Returns empty string if no matching edge is found (end of execution path).
+
 func (w *Workflow) FindNextNode(nodeID, outputPort string) string {
 	for _, edge := range w.Edges {
 		if edge.Source == nodeID {
-			// If outputPort is specified, match it; otherwise match any edge from this node
+
 			if outputPort == "" || edge.SourceHandle == "" || edge.SourceHandle == outputPort {
 				return edge.Target
 			}
@@ -132,7 +132,7 @@ func (w *Workflow) FindOutgoingEdges(nodeID string) []Edge {
 }
 
 // =============================================================================
-// EXECUTION CONTEXT
+
 // =============================================================================
 
 // ExecutionContext holds the state of a running workflow execution.
@@ -180,18 +180,18 @@ func (ctx *ExecutionContext) GetVar(name string) interface{} {
 }
 
 // =============================================================================
-// BLOCK RESULT (Output from Bun workers)
+
 // =============================================================================
 
 // BlockResult represents the output from a Bun worker execution.
-// Includes both the data and the output port for routing.
+
 type BlockResult struct {
 	Data interface{} `json:"data"` // Output data
 	Port string      `json:"port"` // Output port name (e.g., "default", "true", "false")
 }
 
 // =============================================================================
-// LEGACY TYPES (for backward compatibility during migration)
+
 // =============================================================================
 
 // BlockType is an alias for NodeType (legacy compatibility).
@@ -207,7 +207,7 @@ const (
 )
 
 // Block is the legacy structure for linear workflows.
-// Deprecated: Use Node instead.
+
 type Block struct {
 	ID     string                 `json:"id"`
 	Type   BlockType              `json:"type"`
@@ -216,14 +216,14 @@ type Block struct {
 }
 
 // Connection is the legacy structure for simple connections.
-// Deprecated: Use Edge instead.
+
 type Connection struct {
 	From string `json:"from"`
 	To   string `json:"to"`
 }
 
 // LegacyWorkflow is the old linear workflow structure.
-// Used for migration from old format to new graph format.
+
 type LegacyWorkflow struct {
 	ID          string       `json:"id"`
 	Name        string       `json:"name"`

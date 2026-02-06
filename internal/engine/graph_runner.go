@@ -12,7 +12,7 @@ import (
 )
 
 // GraphRunner executes workflows using pointer-based graph traversal.
-// Unlike the linear WorkflowRunner, this supports branching, loops, and multiple output ports.
+
 type GraphRunner struct {
 	workflow      *Workflow
 	bunRunner     *BunRunner
@@ -74,7 +74,7 @@ func getNodeTimeout(node *Node) time.Duration {
 }
 
 // Run executes the workflow starting from the first node without incoming edges.
-// Uses pointer-based execution: follows edges based on output ports.
+
 func (gr *GraphRunner) Run(ctx context.Context) error {
 	log.Printf("Starting graph workflow: %s (%s)", gr.workflow.Name, gr.workflow.ID)
 
@@ -156,12 +156,12 @@ func (gr *GraphRunner) Run(ctx context.Context) error {
 }
 
 // executeFromNode executes the workflow starting from the given node.
-// This is the core pointer-based execution loop.
+
 func (gr *GraphRunner) executeFromNode(ctx context.Context, startNodeID string) error {
 	currentNodeID := startNodeID
 
 	for currentNodeID != "" {
-		// Check for context cancellation (kill switch)
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

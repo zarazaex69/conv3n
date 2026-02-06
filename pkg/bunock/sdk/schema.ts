@@ -1,14 +1,5 @@
-// pkg/bunock/sdk/schema.ts
-// Schema-based validation for block configurations
-
-/**
- * Schema field types
- */
 export type FieldType = 'string' | 'number' | 'boolean' | 'object' | 'array';
 
-/**
- * Schema field definition
- */
 export interface FieldSchema {
     type: FieldType;
     required?: boolean;
@@ -17,45 +8,32 @@ export interface FieldSchema {
     errorMessage?: string;
 }
 
-/**
- * Configuration schema
- */
 export type ConfigSchema = Record<string, FieldSchema>;
 
-/**
- * Validates a configuration object against a schema
- * Throws descriptive errors if validation fails
- */
 export function validateSchema(config: unknown, schema: ConfigSchema): void {
-    // Ensure config is an object
     if (!config || typeof config !== 'object' || Array.isArray(config)) {
         throw new Error('Configuration must be a non-null object');
     }
 
     const configObj = config as Record<string, unknown>;
 
-    // Validate each field in schema
     for (const [fieldName, fieldSchema] of Object.entries(schema)) {
         const value = configObj[fieldName];
         const exists = fieldName in configObj;
 
-        // Check required fields
         if (fieldSchema.required && !exists) {
             throw new Error(`Missing required field: ${fieldName}`);
         }
 
-        // Skip validation if field doesn't exist and has default
         if (!exists && fieldSchema.default !== undefined) {
             configObj[fieldName] = fieldSchema.default;
             continue;
         }
 
-        // Skip if field is optional and not present
         if (!exists && !fieldSchema.required) {
             continue;
         }
 
-        // Validate type
         if (exists) {
             const actualType = Array.isArray(value) ? 'array' : typeof value;
 
@@ -80,7 +58,6 @@ export function validateSchema(config: unknown, schema: ConfigSchema): void {
                 );
             }
 
-            // Custom validation
             if (fieldSchema.validate && !fieldSchema.validate(value)) {
                 throw new Error(
                     fieldSchema.errorMessage ||
@@ -91,19 +68,12 @@ export function validateSchema(config: unknown, schema: ConfigSchema): void {
     }
 }
 
-/**
- * Helper to create a schema validator function
- * Returns a function that can be used in Block.validate()
- */
 export function createSchemaValidator<T>(schema: ConfigSchema): (config: unknown) => asserts config is T {
     return (config: unknown): asserts config is T => {
         validateSchema(config, schema);
     };
 }
 
-/**
- * Common field schemas for reuse
- */
 export const CommonSchemas = {
     url: {
         type: 'string' as FieldType,

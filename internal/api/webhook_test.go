@@ -17,7 +17,7 @@ import (
 )
 
 func TestWebhookTrigger(t *testing.T) {
-	// 1. Setup Storage (In-Memory SQLite)
+
 	store, err := storage.NewSQLite(":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create storage: %v", err)
@@ -25,7 +25,7 @@ func TestWebhookTrigger(t *testing.T) {
 	defer store.Close()
 
 	// 2. Setup Dependencies
-	// We need a dummy blocks dir for the runner, though we won't actually run blocks in this test
+
 	// (or we can use a simple workflow that doesn't fail)
 	tmpDir := t.TempDir()
 	blocksDir := filepath.Join(tmpDir, "blocks")
@@ -35,7 +35,7 @@ func TestWebhookTrigger(t *testing.T) {
 	conditionDir := filepath.Join(blocksDir, "std")
 	os.MkdirAll(conditionDir, 0755)
 	conditionFile := filepath.Join(conditionDir, "condition.ts")
-	// Simple Bun script that reads JSON from stdin and writes to stdout
+
 	dummyScript := `
 	console.log(JSON.stringify({
 		status: "success",
@@ -82,11 +82,11 @@ func TestWebhookTrigger(t *testing.T) {
 	}
 
 	// Register trigger in manager (LoadTriggers would do this)
-	// Since we are testing API which calls Fire, we need the trigger to be registered?
+
 	// Actually Fire calls GetTrigger from DB to get workflow ID, but it also checks if trigger exists in manager?
-	// Let's check Fire implementation:
+
 	// "triggerRunner, exists := tm.GetTrigger(triggerID)" -> Yes, it checks manager.
-	// So we must register it.
+
 	// We can use LoadTriggers or manually register.
 	if err := triggerManager.LoadTriggers(context.Background()); err != nil {
 		t.Fatalf("Failed to load triggers: %v", err)
@@ -100,9 +100,9 @@ func TestWebhookTrigger(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	// We need to route it properly or just call the handler method directly
-	// Since we want to test the handler logic, calling method is fine.
+
 	// But we need path value "id" which Go 1.22+ handles in ServeMux.
-	// httptest.NewRequest doesn't set PathValue.
+
 	// We can use a mux to route it.
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/webhooks/{id}", handler.HandleWebhook)
@@ -115,7 +115,7 @@ func TestWebhookTrigger(t *testing.T) {
 	}
 
 	// 7. Verify Execution Started
-	// Allow some time for async execution (Fire uses worker pool)
+
 	time.Sleep(100 * time.Millisecond)
 
 	executions, err := store.ListTriggerExecutions(context.Background(), "tr-1", 10)
@@ -136,9 +136,9 @@ func TestWebhookTrigger(t *testing.T) {
 	if exec.Payload == nil {
 		t.Error("Expected payload to be saved, got nil")
 	} else {
-		// Verify payload content
+
 		// The payload saved is the constructed map with headers, body, etc.
-		// We just check if it contains our body.
+
 		var savedPayload map[string]interface{}
 		if err := json.Unmarshal(exec.Payload, &savedPayload); err != nil {
 			t.Errorf("Failed to parse saved payload: %v", err)

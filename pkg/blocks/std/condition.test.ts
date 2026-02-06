@@ -1,4 +1,4 @@
-// pkg/blocks/std/condition.test.ts
+
 // Unit tests for Condition block
 
 import { describe, test, expect } from "bun:test";
@@ -146,19 +146,19 @@ describe("Condition Block", () => {
     describe("ConditionBlock Class", () => {
         test("should validate correct config", () => {
             const block = new ConditionBlock();
-            // @ts-ignore - validate is protected/internal but we want to test it
+
             expect(() => block.validate({ expression: "true" })).not.toThrow();
         });
 
         test("should throw on missing expression", () => {
             const block = new ConditionBlock();
-            // @ts-ignore
+
             expect(() => block.validate({})).toThrow();
         });
 
         test("should throw on invalid expression syntax in validate", () => {
             const block = new ConditionBlock();
-            // @ts-ignore
+
             expect(() => block.validate({ expression: "input. >" })).toThrow("Invalid expression syntax");
         });
 
@@ -174,14 +174,14 @@ describe("Condition Block", () => {
 
         test("should route to 'true' port", () => {
             const block = new ConditionBlock();
-            // @ts-ignore - accessing protected method for testing
+
             const port = block.getOutputPort({ result: true, expression: "" });
             expect(port).toBe("true");
         });
 
         test("should route to 'false' port", () => {
             const block = new ConditionBlock();
-            // @ts-ignore
+
             const port = block.getOutputPort({ result: false, expression: "" });
             expect(port).toBe("false");
         });

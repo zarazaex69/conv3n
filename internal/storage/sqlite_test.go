@@ -9,7 +9,7 @@ import (
 )
 
 func TestSQLiteStorage(t *testing.T) {
-	// Create unique temporary directory for this test to prevent race conditions
+
 	// when running tests in parallel (go test -parallel N)
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
@@ -216,7 +216,7 @@ func TestSQLiteStorage(t *testing.T) {
 		workflowID := "test-workflow-7"
 
 		// Create multiple executions with different statuses
-		// Add small delay to ensure different timestamps (UnixNano-based IDs)
+
 		exec1, _ := store.CreateExecution(ctx, workflowID)
 		store.UpdateExecutionStatus(ctx, exec1, storage.ExecutionStatusCompleted, []byte(`{"run":1}`), nil)
 
@@ -239,9 +239,9 @@ func TestSQLiteStorage(t *testing.T) {
 		}
 
 		// Verify they are ordered by most recent first (by started_at DESC)
-		// Since we use UnixNano for ID generation, exec3 should have higher timestamp
+
 		if len(executions) >= 2 {
-			// Just verify first execution is one of the created ones
+
 			found := false
 			for _, id := range []string{exec1, exec2, exec3} {
 				if executions[0].ID == id {
@@ -479,11 +479,10 @@ func TestWorkflowCRUD(t *testing.T) {
 	})
 
 	t.Run("ListWorkflows", func(t *testing.T) {
-		// Clear db for this test or just count
+
 		// Since we run in parallel with unique db per test function (TestWorkflowCRUD),
-		// we are safe from other tests, but we have created wf-1, wf-2, wf-3 (deleted) above.
+
 		// Actually TestWorkflowCRUD runs sequentially its sub-tests sharing the same db.
-		// So we have wf-1 and wf-2 present.
 
 		list, err := store.ListWorkflows(ctx)
 		if err != nil {

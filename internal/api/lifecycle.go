@@ -28,7 +28,7 @@ func NewLifecycleHandler(store storage.Storage, registry *engine.ExecutionRegist
 }
 
 // StopExecution handles POST /api/executions/{id}/stop
-// Cancels a running execution gracefully
+
 func (h *LifecycleHandler) StopExecution(w http.ResponseWriter, r *http.Request) {
 	execID := r.PathValue("id")
 	if execID == "" {
@@ -51,16 +51,16 @@ func (h *LifecycleHandler) StopExecution(w http.ResponseWriter, r *http.Request)
 
 	// Cancel the execution via registry
 	if err := h.Registry.Cancel(execID); err != nil {
-		// Execution might have already completed between the check and cancel
+
 		http.Error(w, "Failed to stop execution: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Update status in database
-	// Note: The workflow runner should also update this when context is cancelled
+
 	msg := "Execution stopped by user"
 	if err := h.Store.UpdateExecutionStatus(r.Context(), execID, storage.ExecutionStatusCancelled, exec.State, &msg); err != nil {
-		// Log error but don't fail the request - execution was already cancelled
+
 		fmt.Printf("Warning: failed to update execution status: %v\n", err)
 	}
 
@@ -68,7 +68,7 @@ func (h *LifecycleHandler) StopExecution(w http.ResponseWriter, r *http.Request)
 }
 
 // RestartExecution handles POST /api/executions/{id}/restart
-// Restarts a completed or failed execution with a new execution ID
+
 func (h *LifecycleHandler) RestartExecution(w http.ResponseWriter, r *http.Request) {
 	execID := r.PathValue("id")
 	if execID == "" {
@@ -118,7 +118,7 @@ func (h *LifecycleHandler) RestartExecution(w http.ResponseWriter, r *http.Reque
 	}()
 
 	// Return the new execution ID (created by runner)
-	// Note: We need to modify the runner to return execution ID
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -129,7 +129,7 @@ func (h *LifecycleHandler) RestartExecution(w http.ResponseWriter, r *http.Reque
 }
 
 // BatchStopExecutions handles POST /api/executions/batch/stop
-// Stops multiple executions at once
+
 func (h *LifecycleHandler) BatchStopExecutions(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ExecutionIDs []string `json:"execution_ids"`

@@ -1,4 +1,4 @@
-// pkg/blocks/custom/code.test.ts
+
 // Unit tests for Custom Code block
 
 import { describe, test, expect, beforeEach } from "bun:test";
@@ -29,7 +29,6 @@ describe("Custom Code Block", () => {
         (Bun as any).write = mockWrite;
 
         // Note: Actual execution would require running the script
-        // For unit testing, we verify the logic separately
 
         // Restore
         (Bun as any).stdin = originalStdin;
@@ -93,7 +92,7 @@ describe("Custom Code Block", () => {
         const transpiler = new Bun.Transpiler({ loader: "ts" });
 
         // This will transpile successfully, but won't have default export
-        // The runtime check happens during import
+
         const transpiled = transpiler.transformSync(invalidCode);
         expect(transpiled).toBeDefined();
     });
@@ -115,7 +114,7 @@ describe("Custom Code Block", () => {
     });
 
     test("should validate code wrapping logic", async () => {
-        // Test the wrapping logic from the actual implementation
+
         const userCode = "return { result: 42 };";
         const wrappedCode = `export default async (input) => { ${userCode} }`;
 
@@ -124,10 +123,10 @@ describe("Custom Code Block", () => {
     });
 
     test("should handle code with imports", async () => {
-        // Note: Dynamic imports in user code might have limitations
+
         const codeWithImport = `
             export default async (input) => {
-                // User might try to import, but it's restricted in data URL context
+
                 return { result: "no imports" };
             }
         `;

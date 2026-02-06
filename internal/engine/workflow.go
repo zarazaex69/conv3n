@@ -10,7 +10,7 @@ import (
 )
 
 // WorkflowRunner orchestrates the execution of a workflow.
-// Deprecated: Use GraphRunner for new graph-based workflows.
+
 type WorkflowRunner struct {
 	bunRunner    *BunRunner
 	stateManager *StateManager
@@ -46,7 +46,7 @@ func (wr *WorkflowRunner) Run(ctx context.Context, workflow Workflow) error {
 
 // runGraph executes the workflow using pointer-based graph traversal.
 func (wr *WorkflowRunner) runGraph(ctx context.Context, workflow Workflow) error {
-	// Create execution record
+
 	execID, err := wr.storage.CreateExecution(ctx, workflow.ID)
 	if err != nil {
 		return fmt.Errorf("failed to create execution record: %w", err)
@@ -73,7 +73,7 @@ func (wr *WorkflowRunner) runGraph(ctx context.Context, workflow Workflow) error
 	currentNodeID := startNodeID
 
 	for currentNodeID != "" {
-		// Check for context cancellation (kill switch)
+
 		select {
 		case <-ctx.Done():
 			log.Printf("Execution cancelled: %v", ctx.Err())
@@ -141,7 +141,7 @@ func (wr *WorkflowRunner) runGraph(ctx context.Context, workflow Workflow) error
 }
 
 // parseBlockResult converts raw Bun output to BlockResult with port routing.
-// IMPORTANT: We keep the full result structure (with "data" field) for variable resolution.
+
 // Variables like {{ $node.block_1.data.value }} expect the "data" field to exist.
 func parseBlockResult(raw interface{}) *BlockResult {
 	result := &BlockResult{
@@ -180,9 +180,9 @@ func parseBlockResult(raw interface{}) *BlockResult {
 }
 
 // processNodeActions handles special actions returned by blocks (e.g., set_var, get_var).
-// This allows blocks to trigger side effects in the execution context.
+
 func (wr *WorkflowRunner) processNodeActions(node *Node, result *BlockResult) error {
-	// Check if result data contains an action field
+
 	dataMap, ok := result.Data.(map[string]interface{})
 	if !ok {
 		return nil // No action to process
@@ -200,7 +200,7 @@ func (wr *WorkflowRunner) processNodeActions(node *Node, result *BlockResult) er
 
 	switch actionStr {
 	case "set_var":
-		// Extract variable name and value
+
 		name, hasName := dataMap["name"]
 		if !hasName {
 			return fmt.Errorf("set_var action requires 'name' field")
@@ -220,12 +220,12 @@ func (wr *WorkflowRunner) processNodeActions(node *Node, result *BlockResult) er
 		log.Printf("Set variable: %s = %v", nameStr, value)
 
 	case "get_var":
-		// get_var doesn't need special processing - the value was already resolved
+
 		// by the variable resolver before the block executed
 		log.Printf("Retrieved variable: %s", dataMap["name"])
 
 	default:
-		// Unknown action - log but don't fail
+
 		log.Printf("Unknown action: %s", actionStr)
 	}
 
@@ -233,9 +233,9 @@ func (wr *WorkflowRunner) processNodeActions(node *Node, result *BlockResult) er
 }
 
 // RunLegacy executes a legacy linear workflow.
-// Deprecated: Convert to graph format using LegacyWorkflow.ToGraphWorkflow().
+
 func (wr *WorkflowRunner) RunLegacy(ctx context.Context, legacy LegacyWorkflow) error {
-	// Convert to graph format and run
+
 	workflow := legacy.ToGraphWorkflow()
 	return wr.Run(ctx, *workflow)
 }

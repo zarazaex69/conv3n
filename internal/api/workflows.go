@@ -29,7 +29,7 @@ func (h *WorkflowHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wf.ID == "" {
-		// Generate simple ID if missing
+
 		wf.ID = fmt.Sprintf("wf_%d", time.Now().UnixNano())
 	}
 
@@ -53,7 +53,7 @@ func (h *WorkflowHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	// Return the full workflow including the generated ID
+
 	json.NewEncoder(w).Encode(wf)
 }
 

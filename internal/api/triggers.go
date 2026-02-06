@@ -50,7 +50,7 @@ func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "type is required", http.StatusBadRequest)
 		return
 	}
-	// Updated type validation to include 'typescript'
+
 	if req.Type != string(engine.TriggerTypeCron) && req.Type != string(engine.TriggerTypeInterval) &&
 		req.Type != string(engine.TriggerTypeWebhook) && req.Type != string(engine.TriggerTypeTS) {
 		http.Error(w, "type must be cron, interval, webhook, or typescript", http.StatusBadRequest)
@@ -93,7 +93,7 @@ func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// If enabled, register with TriggerManager
 	if trigger.Enabled {
 		if err := h.registerTrigger(trigger); err != nil {
-			// Log error but don't fail the request
+
 			fmt.Printf("Warning: failed to register trigger: %v\n", err)
 		}
 	}
@@ -162,7 +162,7 @@ func (h *TriggerHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "type is required", http.StatusBadRequest)
 		return
 	}
-	// Updated type validation to include 'typescript'
+
 	if req.Type != string(engine.TriggerTypeCron) && req.Type != string(engine.TriggerTypeInterval) &&
 		req.Type != string(engine.TriggerTypeWebhook) && req.Type != string(engine.TriggerTypeTS) {
 		http.Error(w, "type must be cron, interval, webhook, or typescript", http.StatusBadRequest)
@@ -202,15 +202,15 @@ func (h *TriggerHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Handle trigger manager updates
 	if wasEnabled && !existing.Enabled {
-		// Trigger was disabled
+
 		h.TriggerManager.Unregister(triggerID)
 	} else if !wasEnabled && existing.Enabled {
-		// Trigger was enabled
+
 		if err := h.registerTrigger(existing); err != nil {
 			fmt.Printf("Warning: failed to register trigger: %v\n", err)
 		}
 	} else if existing.Enabled {
-		// Trigger config changed while enabled - re-register
+
 		h.TriggerManager.Unregister(triggerID)
 		if err := h.registerTrigger(existing); err != nil {
 			fmt.Printf("Warning: failed to register trigger: %v\n", err)
@@ -261,7 +261,7 @@ func (h *TriggerHandler) ListExecutions(w http.ResponseWriter, r *http.Request) 
 
 // registerTrigger creates and registers a trigger runner with the TriggerManager
 func (h *TriggerHandler) registerTrigger(trigger *storage.Trigger) error {
-	// Parse config
+
 	var config map[string]interface{}
 	if err := json.Unmarshal(trigger.Config, &config); err != nil {
 		return fmt.Errorf("failed to parse trigger config: %w", err)
@@ -338,7 +338,7 @@ func (h *TriggerHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	var body interface{}
 	if r.Body != nil {
 		defer r.Body.Close()
-		// Try to parse as JSON. If not JSON, it will be nil, which is acceptable.
+
 		json.NewDecoder(r.Body).Decode(&body)
 	}
 
@@ -357,7 +357,7 @@ func (h *TriggerHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// Fallback for old Go-native webhook triggers
+
 		if err := h.TriggerManager.Fire(r.Context(), triggerID, payload); err != nil {
 			http.Error(w, "Failed to fire Go-native webhook trigger: "+err.Error(), http.StatusInternalServerError)
 			return

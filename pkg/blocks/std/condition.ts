@@ -1,6 +1,5 @@
-// pkg/blocks/std/condition.ts
+
 // Standard Block: Conditional Branching
-// Evaluates JavaScript expressions and routes to "true" or "false" output ports.
 
 import { Block, BlockHelpers } from "../../bunock/sdk/sdk.ts";
 
@@ -15,10 +14,10 @@ export interface ConditionOutput {
 }
 
 // Safely evaluate JavaScript expression
-// Uses Function constructor to create isolated evaluation context
+
 export function evaluateExpression(expression: string, context: unknown): boolean {
     try {
-        // Create a safe evaluation function
+
         // The expression has access to 'input' variable containing the context
         const evalFunction = new Function("input", `
             'use strict';
@@ -36,7 +35,7 @@ export function evaluateExpression(expression: string, context: unknown): boolea
 // Validate expression syntax without executing
 export function validateExpression(expression: string): void {
     try {
-        // Attempt to create function to check syntax
+
         new Function("input", `'use strict'; return Boolean(${expression});`);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -57,7 +56,7 @@ export class ConditionBlock extends Block<ConditionConfig, ConditionOutput> {
     }
 
     async execute(config: ConditionConfig, input?: unknown): Promise<ConditionOutput> {
-        // Prepare evaluation context
+
         const context = input ?? {};
 
         // Evaluate expression

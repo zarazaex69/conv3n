@@ -1,4 +1,4 @@
-// Example: HTTP block with timeout and retry using new SDK utilities
+
 import { Block, BlockHelpers, executeWithTimeoutAndRetry, createSchemaValidator, CommonSchemas } from "#sdk";
 
 interface HttpConfig {
@@ -14,7 +14,7 @@ interface HttpOutput {
 }
 
 class EnhancedHttpBlock extends Block<HttpConfig, HttpOutput> {
-    // Use schema-based validation
+
     private schema = {
         url: CommonSchemas.url,
         method: {
@@ -38,7 +38,7 @@ class EnhancedHttpBlock extends Block<HttpConfig, HttpOutput> {
     validate = createSchemaValidator<HttpConfig>(this.schema);
 
     async execute(config: HttpConfig): Promise<HttpOutput> {
-        // Use timeout + retry helper
+
         const result = await executeWithTimeoutAndRetry(
             async () => {
                 const response = await fetch(config.url, {

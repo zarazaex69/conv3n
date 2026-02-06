@@ -1,4 +1,4 @@
-// pkg/bunock/sdk/decorators.ts
+
 // Decorators and utilities for enhanced block functionality
 
 /**
@@ -68,7 +68,7 @@ export async function withRetry<T>(
             if (backoff === 'linear') {
                 delay = initialDelay * attempt;
             } else {
-                // Exponential backoff: initialDelay * 2^(attempt-1)
+
                 delay = initialDelay * Math.pow(2, attempt - 1);
             }
 

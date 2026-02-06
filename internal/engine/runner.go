@@ -38,7 +38,7 @@ func (r *BunRunner) LoadBlocks() error {
 }
 
 // Execute runs the configured Bun script with the provided input payload.
-// It writes the input to the subprocess's Stdin and reads the result from Stdout.
+
 func (r *BunRunner) Execute(ctx context.Context, scriptPath string, input any) (any, error) {
 	execCtx, cancel := context.WithTimeout(ctx, r.DefaultTimeout)
 	defer cancel()
@@ -100,7 +100,7 @@ func (r *BunRunner) Execute(ctx context.Context, scriptPath string, input any) (
 }
 
 // ExecuteBlock executes a specific block using the appropriate template.
-// Deprecated: Use ExecuteNode for graph-based workflows.
+
 func (r *BunRunner) ExecuteBlock(ctx context.Context, block Block, input any) (any, error) {
 	scriptPath := r.getScriptPath(NodeType(block.Type))
 	if scriptPath == "" {
@@ -110,7 +110,7 @@ func (r *BunRunner) ExecuteBlock(ctx context.Context, block Block, input any) (a
 }
 
 // ExecuteNode executes a node from the graph-based workflow.
-// Returns raw result; caller is responsible for parsing port information.
+
 func (r *BunRunner) ExecuteNode(ctx context.Context, node *Node, input any) (any, error) {
 	if err := r.RateLimiter.Wait(ctx, node.Type); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded for %s: %w", node.Type, err)

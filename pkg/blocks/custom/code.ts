@@ -1,6 +1,5 @@
-// pkg/blocks/custom/code.ts
+
 // Custom Code Block: Execute user-provided TypeScript/JavaScript
-// Allows users to write arbitrary code executed in the Bun runtime.
 
 // Define type-safe input/output interfaces
 interface CustomCodeInput {
@@ -48,7 +47,7 @@ async function main(): Promise<void> {
     const startTime = performance.now();
 
     try {
-        // 1. Read and validate input
+
         const input: CustomCodeInput = await Bun.stdin.json();
 
         if (!input.config || !input.config.code) {
@@ -58,7 +57,7 @@ async function main(): Promise<void> {
         const userCode = input.config.code;
 
         // Determine the data to pass to user function
-        // If config.input is specified (resolved from variables), use it
+
         // Otherwise, use the input field from the payload
         const userData = input.config.input !== undefined
             ? input.config.input
@@ -82,13 +81,13 @@ async function main(): Promise<void> {
         }
 
         // 3. Execute user code in isolated context
-        // User code should export a default async function that accepts input and returns output
+
         // Example: export default async (input) => { return { result: input.value * 2 }; }
 
         let userFunction: (input: unknown) => Promise<unknown>;
 
         try {
-            // Create a temporary module from the user code
+
             const moduleCode = userCode.includes("export default")
                 ? userCode
                 : `export default async (input) => { ${userCode} }`;
@@ -146,7 +145,7 @@ async function main(): Promise<void> {
         await Bun.write(Bun.stdout, JSON.stringify(result));
 
     } catch (error) {
-        // Catch-all for unexpected errors
+
         const endTime = performance.now();
         const err = error instanceof Error ? error : new Error(String(error));
         console.error(`Custom Code Block Failed: ${err.message}`);

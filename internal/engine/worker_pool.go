@@ -8,7 +8,7 @@ import (
 )
 
 // WorkerPool manages concurrent workflow executions with configurable limits
-// Prevents resource exhaustion when many workflows run simultaneously
+
 type WorkerPool struct {
 	maxWorkers int
 	semaphore  chan struct{}
@@ -18,7 +18,7 @@ type WorkerPool struct {
 }
 
 // NewWorkerPool creates a new worker pool with the specified maximum workers
-// maxWorkers: maximum number of concurrent workflow executions (0 = unlimited)
+
 func NewWorkerPool(maxWorkers int) *WorkerPool {
 	if maxWorkers <= 0 {
 		maxWorkers = 100 // Default limit to prevent runaway resource usage
@@ -31,12 +31,12 @@ func NewWorkerPool(maxWorkers int) *WorkerPool {
 }
 
 // Execute runs a workflow execution function with concurrency control
-// Blocks if the pool is at capacity until a slot becomes available
+
 func (wp *WorkerPool) Execute(ctx context.Context, fn func() error) error {
-	// Acquire semaphore slot (blocks if pool is full)
+
 	select {
 	case wp.semaphore <- struct{}{}:
-		// Slot acquired
+
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -53,7 +53,7 @@ func (wp *WorkerPool) Execute(ctx context.Context, fn func() error) error {
 	// Execute in goroutine
 	go func() {
 		defer func() {
-			// Release semaphore slot
+
 			<-wp.semaphore
 
 			wp.mu.Lock()
@@ -75,12 +75,12 @@ func (wp *WorkerPool) Execute(ctx context.Context, fn func() error) error {
 }
 
 // ExecuteSync runs a workflow execution function synchronously with concurrency control
-// Blocks until the function completes
+
 func (wp *WorkerPool) ExecuteSync(ctx context.Context, fn func() error) error {
-	// Acquire semaphore slot
+
 	select {
 	case wp.semaphore <- struct{}{}:
-		// Slot acquired
+
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -106,7 +106,7 @@ func (wp *WorkerPool) ExecuteSync(ctx context.Context, fn func() error) error {
 }
 
 // Wait blocks until all active workers complete
-// Used for graceful shutdown
+
 func (wp *WorkerPool) Wait() {
 	wp.wg.Wait()
 	log.Println("Worker pool: all workers completed")

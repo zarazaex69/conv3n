@@ -7,7 +7,7 @@ import (
 )
 
 // ExecutionRegistry manages active workflow executions
-// Allows cancellation of running workflows via context
+
 type ExecutionRegistry struct {
 	mu       sync.RWMutex
 	contexts map[string]context.CancelFunc
@@ -21,7 +21,7 @@ func NewExecutionRegistry() *ExecutionRegistry {
 }
 
 // Register adds an execution to the registry with its cancel function
-// This allows the execution to be stopped via Cancel()
+
 func (r *ExecutionRegistry) Register(execID string, cancel context.CancelFunc) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -29,7 +29,7 @@ func (r *ExecutionRegistry) Register(execID string, cancel context.CancelFunc) {
 }
 
 // Unregister removes an execution from the registry
-// Should be called when execution completes normally
+
 func (r *ExecutionRegistry) Unregister(execID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -37,7 +37,7 @@ func (r *ExecutionRegistry) Unregister(execID string) {
 }
 
 // Cancel stops a running execution by calling its context cancel function
-// Returns error if execution is not found or already completed
+
 func (r *ExecutionRegistry) Cancel(execID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -72,7 +72,7 @@ func (r *ExecutionRegistry) ActiveCount() int {
 }
 
 // CancelAll stops all active executions
-// Useful for graceful shutdown
+
 func (r *ExecutionRegistry) CancelAll() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

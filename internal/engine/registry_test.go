@@ -52,7 +52,7 @@ func TestExecutionRegistry(t *testing.T) {
 		// Verify context is cancelled
 		select {
 		case <-ctx.Done():
-			// OK
+
 		default:
 			t.Error("expected context to be cancelled")
 		}

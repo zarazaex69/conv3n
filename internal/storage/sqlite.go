@@ -30,7 +30,7 @@ type Workflow struct {
 }
 
 // Execution represents a single workflow execution instance
-// This allows tracking history of all runs, not just the latest state
+
 type Execution struct {
 	ID          string
 	WorkflowID  string
@@ -65,10 +65,10 @@ type TriggerExecution struct {
 }
 
 // Storage defines the interface for workflow persistence
-// Migration from workflow-state model to execution-history model
+
 // This allows tracking full execution history (like n8n)
 type Storage interface {
-	// Workflow Management
+
 	CreateWorkflow(ctx context.Context, workflow *Workflow) error
 	GetWorkflow(ctx context.Context, id string) (*Workflow, error)
 	UpdateWorkflow(ctx context.Context, workflow *Workflow) error
@@ -106,7 +106,7 @@ type SQLiteStorage struct {
 }
 
 // NewSQLite creates a new SQLite-backed storage
-// Uses modernc.org/sqlite for cross-platform builds without CGO
+
 func NewSQLite(dbPath string) (*SQLiteStorage, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -123,7 +123,7 @@ func NewSQLite(dbPath string) (*SQLiteStorage, error) {
 }
 
 // initSchema creates necessary tables for execution history tracking
-// Migration from single-state model to full execution history
+
 func initSchema(db *sql.DB) error {
 	schema := `
 	-- Workflows: store workflow definitions
@@ -330,9 +330,9 @@ func (s *SQLiteStorage) ListWorkflows(ctx context.Context) ([]*Workflow, error) 
 // --- Execution Management ---
 
 // CreateExecution creates a new workflow execution instance
-// Returns a unique execution_id (UUID) for tracking this specific run
+
 func (s *SQLiteStorage) CreateExecution(ctx context.Context, workflowID string) (string, error) {
-	// Generate UUID for execution (using timestamp-based approach for simplicity)
+
 	// In production, consider using github.com/google/uuid
 	executionID := fmt.Sprintf("%s-%d", workflowID, time.Now().UnixNano())
 
@@ -348,7 +348,7 @@ func (s *SQLiteStorage) CreateExecution(ctx context.Context, workflowID string) 
 }
 
 // UpdateExecutionStatus updates the status and state of an execution
-// Used to mark execution as completed or failed, and store final state
+
 func (s *SQLiteStorage) UpdateExecutionStatus(ctx context.Context, executionID string, status ExecutionStatus, state []byte, errorMsg *string) error {
 	query := `
 		UPDATE workflow_executions 
@@ -398,7 +398,7 @@ func (s *SQLiteStorage) GetExecution(ctx context.Context, executionID string) (*
 }
 
 // ListExecutions retrieves execution history for a workflow
-// Returns most recent executions first, limited by the limit parameter
+
 func (s *SQLiteStorage) ListExecutions(ctx context.Context, workflowID string, limit int) ([]*Execution, error) {
 	query := `
 		SELECT execution_id, workflow_id, status, state, started_at, completed_at, error
@@ -447,7 +447,7 @@ func (s *SQLiteStorage) ListExecutions(ctx context.Context, workflowID string, l
 }
 
 // SaveNodeResult persists the result of a single node execution
-// Now tied to execution_id to track results per specific workflow run
+
 func (s *SQLiteStorage) SaveNodeResult(ctx context.Context, executionID, nodeID string, result []byte) error {
 	query := `
 		INSERT INTO node_results (execution_id, node_id, result, created_at)

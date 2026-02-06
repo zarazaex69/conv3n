@@ -371,7 +371,7 @@ describe("Block integration with stdin/stdout", () => {
         const originalWrite = Bun.write;
 
         try {
-            // Mock stdin
+
             (Bun as any).stdin = {
                 json: async () => ({
                     config: { message: "hello" },
@@ -425,9 +425,9 @@ describe("Block integration with stdin/stdout", () => {
             };
 
             // Prevent the real process from exiting during the test
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             (process as any).exit = () => {
-                // no-op in tests
+
             };
 
             const block = new FailingBlock();

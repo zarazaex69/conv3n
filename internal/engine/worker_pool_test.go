@@ -127,7 +127,7 @@ func TestWorkerPool(t *testing.T) {
 		}
 
 		// Execute (async) logs error but doesn't return it directly
-		// We can't easily test the log output here without hooking logger,
+
 		// but we can verify it doesn't panic
 		err = pool.Execute(context.Background(), func() error {
 			return expectedErr
@@ -152,7 +152,7 @@ func TestWorkerPool(t *testing.T) {
 		}
 
 		// Wait for them to be scheduled
-		// This is a bit racy but we want to ensure they are "active"
+
 		time.Sleep(10 * time.Millisecond)
 
 		// Wait for pool to drain

@@ -15,7 +15,7 @@ import (
 
 // TestBunRunner_ExecuteBlock_HTTPRequest verifies HTTP request block execution
 func TestBunRunner_ExecuteBlock_HTTPRequest(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}
@@ -64,7 +64,7 @@ func TestBunRunner_ExecuteBlock_HTTPRequest(t *testing.T) {
 	}
 
 	// Verify HTTP response structure
-	// The result is nested: { data: { status: ..., ... }, port: ... }
+
 	dataMap, ok := resMap["data"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected data map in result, got %T", resMap["data"])
@@ -77,7 +77,7 @@ func TestBunRunner_ExecuteBlock_HTTPRequest(t *testing.T) {
 
 // TestBunRunner_ExecuteBlock_CustomCode verifies custom code block execution
 func TestBunRunner_ExecuteBlock_CustomCode(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}
@@ -117,7 +117,7 @@ func TestBunRunner_ExecuteBlock_CustomCode(t *testing.T) {
 	}
 
 	// Verify custom code execution
-	// The result is nested: { data: { success: true, ... }, port: ... }
+
 	dataMap, ok := resMap["data"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected data map in result, got %T", resMap["data"])
@@ -155,7 +155,7 @@ func TestBunRunner_ExecuteBlock_UnknownType(t *testing.T) {
 
 // TestBunRunner_Execute_ContextCancellation verifies context cancellation handling
 func TestBunRunner_Execute_ContextCancellation(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}

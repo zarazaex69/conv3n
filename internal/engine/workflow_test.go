@@ -57,7 +57,7 @@ func TestWorkflowRunner_Run_EmptyWorkflow(t *testing.T) {
 	defer cancel()
 
 	err := runner.Run(execCtx, workflow)
-	// Empty workflow should fail because there are no nodes
+
 	if err == nil {
 		t.Error("Empty workflow should fail with 'no nodes' error")
 	}
@@ -65,7 +65,7 @@ func TestWorkflowRunner_Run_EmptyWorkflow(t *testing.T) {
 
 // TestWorkflowRunner_Run_SingleBlock verifies single block execution
 func TestWorkflowRunner_Run_SingleBlock(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}
@@ -120,7 +120,7 @@ func TestWorkflowRunner_Run_SingleBlock(t *testing.T) {
 }
 
 func TestWorkflowRunner_Run_Chain(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}
@@ -135,7 +135,7 @@ func TestWorkflowRunner_Run_Chain(t *testing.T) {
 	defer ts.Close()
 
 	// 2. Define Workflow (graph format) - simplified without variable substitution
-	// Variable substitution test is complex due to httptest + bun interaction
+
 	workflow := engine.Workflow{
 		ID:   "wf-test-1",
 		Name: "Test Chain",
@@ -198,7 +198,7 @@ func TestWorkflowRunner_Run_Chain(t *testing.T) {
 
 // TestWorkflowRunner_Run_ErrorInBlock verifies error handling during block execution
 func TestWorkflowRunner_Run_ErrorInBlock(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}
@@ -212,7 +212,7 @@ func TestWorkflowRunner_Run_ErrorInBlock(t *testing.T) {
 				Type:     engine.NodeTypeHTTPRequest,
 				Position: engine.Position{X: 0, Y: 100},
 				Config: map[string]interface{}{
-					// Missing required 'url' field
+
 					"method": "GET",
 				},
 			},
@@ -239,7 +239,7 @@ func TestWorkflowRunner_Run_ErrorInBlock(t *testing.T) {
 
 // TestWorkflowRunner_Run_SequentialExecution verifies graph traversal executes nodes in order
 func TestWorkflowRunner_Run_SequentialExecution(t *testing.T) {
-	// Skip if bun is not available
+
 	if _, err := exec.LookPath("bun"); err != nil {
 		t.Skip("bun not found in PATH, skipping test")
 	}
@@ -459,7 +459,7 @@ func TestGraphRunner_IdempotentNodeExecution(t *testing.T) {
 	ctxExec := context.Background()
 
 	// Первый "запуск": один HTTP-вызов и ручная запись результата в storage
-	// HTTP-хэндлер должен сработать ровно один раз
+
 	req, err := http.NewRequestWithContext(ctxExec, http.MethodGet, ts.URL, nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)

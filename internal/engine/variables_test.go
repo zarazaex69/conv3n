@@ -6,7 +6,7 @@ import (
 
 // TestVariables tests the SetVar and GetVar functionality via variable resolution.
 func TestVariables(t *testing.T) {
-	// Create execution context
+
 	execCtx := NewExecutionContext("test")
 
 	// Simulate set_var action

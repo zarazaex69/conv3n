@@ -1,4 +1,4 @@
-// pkg/bunock/runner.test.ts
+
 // Unit tests for Bunock runner
 
 import { describe, test, expect, beforeEach } from "bun:test";
@@ -177,7 +177,7 @@ describe("Bunock Runner", () => {
     });
 
     test("should handle large input data", async () => {
-        // Create a large input object
+
         const largeInput = {
             items: Array.from({ length: 1000 }, (_, i) => ({
                 id: i,

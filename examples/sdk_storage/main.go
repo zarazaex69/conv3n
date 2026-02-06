@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	// Create SQLite storage
+
 	store, err := storage.NewSQLite("./conv3n.db")
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
