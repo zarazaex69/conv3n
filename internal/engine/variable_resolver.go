@@ -121,9 +121,33 @@ func getValueByPath(path string, ctx *ExecutionContext) (interface{}, error) {
 		}
 
 	case "$error":
+		if ctx.LastError == nil {
+			return nil, fmt.Errorf("no error context available")
+		}
 
-		// TODO: Implement error context when adding try/catch
-		return nil, fmt.Errorf("$error not yet implemented")
+		if len(parts) == 1 {
+			errorMap := map[string]interface{}{
+				"message":   ctx.LastError.Message,
+				"node_id":   ctx.LastError.NodeID,
+				"timestamp": ctx.LastError.Timestamp,
+				"type":      ctx.LastError.Type,
+			}
+			return errorMap, nil
+		}
+
+		field := parts[1]
+		switch field {
+		case "message":
+			return ctx.LastError.Message, nil
+		case "node_id", "nodeId":
+			return ctx.LastError.NodeID, nil
+		case "timestamp":
+			return ctx.LastError.Timestamp, nil
+		case "type":
+			return ctx.LastError.Type, nil
+		default:
+			return nil, fmt.Errorf("unknown error field: %s", field)
+		}
 
 	default:
 

@@ -280,6 +280,9 @@ func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph
 		wr.metrics.Counter("node.failures", map[string]string{
 			"node_type": string(node.Type),
 		}).Inc()
+
+		wr.stateManager.ctx.SetError(node.ID, err.Error(), "execution_error")
+
 		return fmt.Errorf("node %s execution failed: %w", node.ID, err)
 	}
 

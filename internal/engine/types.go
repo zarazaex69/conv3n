@@ -1,5 +1,7 @@
 package engine
 
+import "time"
+
 // =============================================================================
 
 // =============================================================================
@@ -132,7 +134,13 @@ func (w *Workflow) FindOutgoingEdges(nodeID string) []Edge {
 
 // =============================================================================
 
-// ExecutionContext holds the state of a running workflow execution.
+type ErrorContext struct {
+	Message   string    `json:"message"`
+	NodeID    string    `json:"node_id"`
+	Timestamp time.Time `json:"timestamp"`
+	Type      string    `json:"type"`
+}
+
 type ExecutionContext struct {
 	WorkflowID    string
 	ExecutionID   string
@@ -140,6 +148,7 @@ type ExecutionContext struct {
 	Variables     map[string]interface{}
 	TriggerData   map[string]interface{}
 	VariableStore *VariableStore
+	LastError     *ErrorContext
 }
 
 // NewExecutionContext creates a new context for a workflow execution.
@@ -174,6 +183,19 @@ func (ctx *ExecutionContext) GetVar(name string) interface{} {
 		return value
 	}
 	return ctx.Variables[name]
+}
+
+func (ctx *ExecutionContext) SetError(nodeID, message, errorType string) {
+	ctx.LastError = &ErrorContext{
+		Message:   message,
+		NodeID:    nodeID,
+		Timestamp: time.Now(),
+		Type:      errorType,
+	}
+}
+
+func (ctx *ExecutionContext) ClearError() {
+	ctx.LastError = nil
 }
 
 // =============================================================================
