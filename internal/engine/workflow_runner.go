@@ -12,8 +12,8 @@ import (
 	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
-type GraphRunnerV2 struct {
-	workerPool      *WorkerPoolV2
+type WorkflowRunner struct {
+	workerPool      *WorkerPool
 	stateManager    *StateManager
 	storage         storage.Storage
 	registry        *ExecutionRegistry
@@ -24,13 +24,13 @@ type GraphRunnerV2 struct {
 	logger          *observability.Logger
 }
 
-func NewGraphRunnerV2(
+func NewWorkflowRunner(
 	ctx *ExecutionContext,
-	workerPool *WorkerPoolV2,
+	workerPool *WorkerPool,
 	store storage.Storage,
 	registry *ExecutionRegistry,
-) *GraphRunnerV2 {
-	return &GraphRunnerV2{
+) *WorkflowRunner {
+	return &WorkflowRunner{
 		workerPool:      workerPool,
 		stateManager:    NewStateManager(ctx),
 		storage:         store,
@@ -43,8 +43,8 @@ func NewGraphRunnerV2(
 	}
 }
 
-func (gr *GraphRunnerV2) Run(ctx context.Context, workflow Workflow) error {
-	span, ctx := gr.tracer.StartSpan(ctx, "workflow.execute")
+func (wr *WorkflowRunner) Run(ctx context.Context, workflow Workflow) error {
+	span, ctx := wr.tracer.StartSpan(ctx, "workflow.execute")
 	defer span.End()
 
 	span.SetAttributes(map[string]any{
@@ -54,34 +54,34 @@ func (gr *GraphRunnerV2) Run(ctx context.Context, workflow Workflow) error {
 		"edge.count":    len(workflow.Edges),
 	})
 
-	logger := gr.logger.WithWorkflow(workflow.ID, gr.stateManager.ctx.ExecutionID)
+	logger := wr.logger.WithWorkflow(workflow.ID, wr.stateManager.ctx.ExecutionID)
 	logger.Info("workflow execution started")
 
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
-		gr.metrics.Histogram("workflow.duration", nil, nil).ObserveDuration(startTime)
+		wr.metrics.Histogram("workflow.duration", nil, nil).ObserveDuration(startTime)
 		logger.Info("workflow execution completed", slog.Duration("duration", duration))
 	}()
 
-	execID, err := gr.storage.CreateExecution(ctx, workflow.ID)
+	execID, err := wr.storage.CreateExecution(ctx, workflow.ID)
 	if err != nil {
 		span.SetStatus(observability.StatusCodeError, err.Error())
 		return fmt.Errorf("failed to create execution: %w", err)
 	}
 
-	gr.stateManager.ctx.ExecutionID = execID
+	wr.stateManager.ctx.ExecutionID = execID
 
 	var finalStatus = storage.ExecutionStatusCompleted
 	var finalError *string
 
 	defer func() {
-		stateBytes, _ := json.Marshal(gr.stateManager.ctx.Results)
-		if err := gr.storage.UpdateExecutionStatus(ctx, execID, finalStatus, stateBytes, finalError); err != nil {
+		stateBytes, _ := json.Marshal(wr.stateManager.ctx.Results)
+		if err := wr.storage.UpdateExecutionStatus(ctx, execID, finalStatus, stateBytes, finalError); err != nil {
 			logger.Error("failed to update execution status", slog.Any("error", err))
 		}
 
-		gr.metrics.Counter("workflow.executions", map[string]string{
+		wr.metrics.Counter("workflow.executions", map[string]string{
 			"status": string(finalStatus),
 		}).Inc()
 	}()
@@ -93,9 +93,9 @@ func (gr *GraphRunnerV2) Run(ctx context.Context, workflow Workflow) error {
 		return err
 	}
 
-	graph := gr.buildExecutionGraph(&workflow)
+	graph := wr.buildExecutionGraph(&workflow)
 
-	if err := gr.executeGraph(ctx, graph, &workflow); err != nil {
+	if err := wr.executeGraph(ctx, graph, &workflow); err != nil {
 		finalStatus = storage.ExecutionStatusFailed
 		msg := err.Error()
 		finalError = &msg
@@ -112,7 +112,7 @@ type executionNode struct {
 	dependencies []string
 	dependents   []string
 	executed     bool
-	result       *BlockResult
+	result       *NodeResult
 	mu           sync.RWMutex
 }
 
@@ -121,7 +121,7 @@ type executionGraph struct {
 	mu    sync.RWMutex
 }
 
-func (gr *GraphRunnerV2) buildExecutionGraph(workflow *Workflow) *executionGraph {
+func (wr *WorkflowRunner) buildExecutionGraph(workflow *Workflow) *executionGraph {
 	graph := &executionGraph{
 		nodes: make(map[string]*executionNode),
 	}
@@ -147,8 +147,8 @@ func (gr *GraphRunnerV2) buildExecutionGraph(workflow *Workflow) *executionGraph
 	return graph
 }
 
-func (gr *GraphRunnerV2) executeGraph(ctx context.Context, graph *executionGraph, workflow *Workflow) error {
-	readyNodes := gr.findReadyNodes(graph)
+func (wr *WorkflowRunner) executeGraph(ctx context.Context, graph *executionGraph, workflow *Workflow) error {
+	readyNodes := wr.findReadyNodes(graph)
 	if len(readyNodes) == 0 {
 		return fmt.Errorf("no executable nodes found")
 	}
@@ -172,7 +172,7 @@ func (gr *GraphRunnerV2) executeGraph(ctx context.Context, graph *executionGraph
 				defer wg.Done()
 				defer func() { <-semaphore }()
 
-				if err := gr.executeNode(ctx, graph, workflow, nid); err != nil {
+				if err := wr.executeNode(ctx, graph, workflow, nid); err != nil {
 					errChan <- err
 				}
 			}(nodeID)
@@ -186,13 +186,13 @@ func (gr *GraphRunnerV2) executeGraph(ctx context.Context, graph *executionGraph
 		default:
 		}
 
-		readyNodes = gr.findReadyNodes(graph)
+		readyNodes = wr.findReadyNodes(graph)
 	}
 
 	return nil
 }
 
-func (gr *GraphRunnerV2) findReadyNodes(graph *executionGraph) []string {
+func (wr *WorkflowRunner) findReadyNodes(graph *executionGraph) []string {
 	graph.mu.RLock()
 	defer graph.mu.RUnlock()
 
@@ -229,11 +229,11 @@ func (gr *GraphRunnerV2) findReadyNodes(graph *executionGraph) []string {
 	return ready
 }
 
-func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph, workflow *Workflow, nodeID string) error {
+func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph, workflow *Workflow, nodeID string) error {
 	execNode := graph.nodes[nodeID]
 	node := execNode.node
 
-	span, ctx := gr.tracer.StartSpan(ctx, "node.execute")
+	span, ctx := wr.tracer.StartSpan(ctx, "node.execute")
 	defer span.End()
 
 	span.SetAttributes(map[string]any{
@@ -241,17 +241,17 @@ func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph,
 		"node.type": string(node.Type),
 	})
 
-	logger := gr.logger.WithNode(node.ID)
+	logger := wr.logger.WithNode(node.ID)
 	logger.Info("node execution started")
 
 	nodeStartTime := time.Now()
 	defer func() {
-		gr.metrics.Histogram("node.duration", nil, map[string]string{
+		wr.metrics.Histogram("node.duration", nil, map[string]string{
 			"node_type": string(node.Type),
 		}).ObserveDuration(nodeStartTime)
 	}()
 
-	resolvedConfig, err := ResolveVariables(node.Config, gr.stateManager.ctx)
+	resolvedConfig, err := ResolveVariables(node.Config, wr.stateManager.ctx)
 	if err != nil {
 		span.SetStatus(observability.StatusCodeError, err.Error())
 		return fmt.Errorf("variable resolution failed for %s: %w", node.ID, err)
@@ -264,9 +264,9 @@ func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph,
 	var rawResult any
 
 	cbKey := fmt.Sprintf("node:%s", node.Type)
-	rawResult, err = RetryWithBackoff(ctx, gr.retryConfig, func(ctx context.Context) (any, error) {
-		result, err := gr.circuitBreakers.Execute(ctx, cbKey, func() (any, error) {
-			return gr.executeNodeWithWorkerPool(ctx, node, input)
+	rawResult, err = RetryWithBackoff(ctx, wr.retryConfig, func(ctx context.Context) (any, error) {
+		result, err := wr.circuitBreakers.Execute(ctx, cbKey, func() (any, error) {
+			return wr.executeNodeWithWorkerPool(ctx, node, input)
 		})
 		if err == nil {
 			rawResult = result
@@ -277,18 +277,18 @@ func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph,
 	if err != nil {
 		span.SetStatus(observability.StatusCodeError, err.Error())
 		logger.Error("node execution failed", slog.Any("error", err))
-		gr.metrics.Counter("node.failures", map[string]string{
+		wr.metrics.Counter("node.failures", map[string]string{
 			"node_type": string(node.Type),
 		}).Inc()
 		return fmt.Errorf("node %s execution failed: %w", node.ID, err)
 	}
 
-	result := parseBlockResult(rawResult)
+	result := parseNodeResult(rawResult)
 
-	gr.stateManager.SetResult(node.ID, result.Data)
+	wr.stateManager.SetResult(node.ID, result.Data)
 
 	resBytes, _ := json.Marshal(result.Data)
-	if err := gr.storage.SaveNodeResult(ctx, gr.stateManager.ctx.ExecutionID, node.ID, resBytes); err != nil {
+	if err := wr.storage.SaveNodeResult(ctx, wr.stateManager.ctx.ExecutionID, node.ID, resBytes); err != nil {
 		logger.Error("failed to save node result", slog.Any("error", err))
 	}
 
@@ -300,7 +300,7 @@ func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph,
 	logger.Info("node execution completed", slog.String("port", result.Port))
 	span.SetStatus(observability.StatusCodeOK, "")
 
-	gr.metrics.Counter("node.executions", map[string]string{
+	wr.metrics.Counter("node.executions", map[string]string{
 		"node_type": string(node.Type),
 		"status":    "success",
 	}).Inc()
@@ -308,20 +308,20 @@ func (gr *GraphRunnerV2) executeNode(ctx context.Context, graph *executionGraph,
 	return nil
 }
 
-func (gr *GraphRunnerV2) executeNodeWithWorkerPool(ctx context.Context, node *Node, input any) (any, error) {
+func (wr *WorkflowRunner) executeNodeWithWorkerPool(ctx context.Context, node *Node, input any) (any, error) {
 	if node.Type == NodeTypeSetVar || node.Type == NodeTypeGetVar {
-		return gr.executeVariableNode(node, input)
+		return wr.executeVariableNode(node, input)
 	}
 
-	scriptPath := gr.getScriptPath(node.Type)
+	scriptPath := wr.getScriptPath(node.Type)
 	if scriptPath == "" {
 		return nil, fmt.Errorf("unknown node type: %s", node.Type)
 	}
 
-	return gr.workerPool.Submit(ctx, scriptPath, input, 30*time.Second)
+	return wr.workerPool.Submit(ctx, scriptPath, input, 30*time.Second)
 }
 
-func (gr *GraphRunnerV2) executeVariableNode(node *Node, input any) (any, error) {
+func (wr *WorkflowRunner) executeVariableNode(node *Node, input any) (any, error) {
 	inputMap, ok := input.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("invalid input format")
@@ -335,20 +335,20 @@ func (gr *GraphRunnerV2) executeVariableNode(node *Node, input any) (any, error)
 	if node.Type == NodeTypeSetVar {
 		name, _ := config["name"].(string)
 		value := config["value"]
-		gr.stateManager.ctx.SetVar(name, value)
+		wr.stateManager.ctx.SetVar(name, value)
 		return map[string]any{"data": map[string]any{"name": name, "value": value}}, nil
 	}
 
 	if node.Type == NodeTypeGetVar {
 		name, _ := config["name"].(string)
-		value := gr.stateManager.ctx.GetVar(name)
+		value := wr.stateManager.ctx.GetVar(name)
 		return map[string]any{"data": map[string]any{"name": name, "value": value}}, nil
 	}
 
 	return nil, fmt.Errorf("unsupported variable node type")
 }
 
-func (gr *GraphRunnerV2) getScriptPath(nodeType NodeType) string {
+func (wr *WorkflowRunner) getScriptPath(nodeType NodeType) string {
 	registry := NewBlockRegistry("pkg/blocks")
 	manifest, ok := registry.Get(nodeType)
 	if ok {

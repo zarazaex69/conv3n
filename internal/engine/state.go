@@ -18,16 +18,12 @@ func (sm *StateManager) SetResult(blockID string, result interface{}) {
 	sm.ctx.Results[blockID] = result
 }
 
-// GetResult retrieves the output of a block.
-func (sm *StateManager) GetResult(blockID string) interface{} {
-	return sm.ctx.Results[blockID]
+func (sm *StateManager) GetResult(nodeID string) interface{} {
+	return sm.ctx.Results[nodeID]
 }
 
-// PrepareInput creates the input payload for a block, resolving any variables in the config.
-func (sm *StateManager) PrepareInput(block Block) (map[string]interface{}, error) {
-
-	// We pass the entire ExecutionContext for access to both Results and Variables
-	resolvedConfig, err := ResolveVariables(block.Config, sm.ctx)
+func (sm *StateManager) PrepareInput(node *Node) (map[string]interface{}, error) {
+	resolvedConfig, err := ResolveVariables(node.Config, sm.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve variables in config: %w", err)
 	}

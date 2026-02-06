@@ -20,9 +20,10 @@ import (
 var Version = "dev"
 
 type Server struct {
-	BlocksDir string
-	Store     storage.Storage
-	Registry  *engine.ExecutionRegistry
+	BlocksDir  string
+	Store      storage.Storage
+	Registry   *engine.ExecutionRegistry
+	WorkerPool *engine.WorkerPool
 }
 
 func main() {
@@ -50,18 +51,24 @@ func main() {
 	}
 
 	registry := engine.NewExecutionRegistry()
-	workerPool := engine.NewWorkerPool(20)
 
-	triggerManager := engine.NewTriggerManager(store, blocksDir, registry, workerPool)
+	workerPool, err := engine.NewWorkerPool(4, "bun", "pkg/bunock/worker_server.ts")
+	if err != nil {
+		log.Fatalf("Failed to initialize worker pool: %v", err)
+	}
+	defer workerPool.Shutdown()
+
+	triggerManager := engine.NewTriggerManager(store, workerPool, registry)
 	if err := triggerManager.LoadTriggers(context.Background()); err != nil {
 		log.Printf("Warning: failed to load triggers: %v", err)
 	}
 	defer triggerManager.StopAll()
 
 	server := &Server{
-		BlocksDir: blocksDir,
-		Store:     store,
-		Registry:  registry,
+		BlocksDir:  blocksDir,
+		Store:      store,
+		Registry:   registry,
+		WorkerPool: workerPool,
 	}
 
 	mux := http.NewServeMux()
@@ -89,7 +96,7 @@ func main() {
 	mux.HandleFunc("GET /api/executions/{id}", execHandler.Get)
 	mux.HandleFunc("GET /api/executions/{id}/nodes/{nodeId}", execHandler.GetNodeResult)
 
-	lifecycleHandler := api.NewLifecycleHandler(store, registry, blocksDir)
+	lifecycleHandler := api.NewLifecycleHandler(store, registry, workerPool)
 	mux.HandleFunc("POST /api/executions/{id}/stop", lifecycleHandler.StopExecution)
 	mux.HandleFunc("POST /api/executions/{id}/restart", lifecycleHandler.RestartExecution)
 	mux.HandleFunc("POST /api/executions/batch/stop", lifecycleHandler.BatchStopExecutions)
@@ -156,7 +163,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := engine.NewExecutionContext(req.Workflow.ID)
-	runner := engine.NewWorkflowRunner(ctx, s.BlocksDir, s.Store, s.Registry)
+	runner := engine.NewWorkflowRunner(ctx, s.WorkerPool, s.Store, s.Registry)
 
 	fmt.Printf("New Job: %s\n", req.Workflow.Name)
 

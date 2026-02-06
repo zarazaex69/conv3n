@@ -57,21 +57,19 @@ type ManagerForRunner interface {
 // TriggerManager manages all active triggers
 type TriggerManager struct {
 	Store      storage.Storage
-	blocksDir  string
+	workerPool *WorkerPool
 	registry   *ExecutionRegistry
 	triggers   map[string]TriggerRunner
-	workerPool *WorkerPool
 	mu         sync.RWMutex
 }
 
 // NewTriggerManager creates a new trigger manager
-func NewTriggerManager(store storage.Storage, blocksDir string, registry *ExecutionRegistry, workerPool *WorkerPool) *TriggerManager {
+func NewTriggerManager(store storage.Storage, workerPool *WorkerPool, registry *ExecutionRegistry) *TriggerManager {
 	return &TriggerManager{
 		Store:      store,
-		blocksDir:  blocksDir,
+		workerPool: workerPool,
 		registry:   registry,
 		triggers:   make(map[string]TriggerRunner),
-		workerPool: workerPool,
 	}
 }
 
@@ -515,15 +513,13 @@ func (tm *TriggerManager) ExecuteWorkflow(ctx context.Context, workflowID, trigg
 
 // Fire executes a workflow triggered by a trigger with optional payload
 func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload map[string]interface{}) error {
-
-	return tm.workerPool.Execute(ctx, func() error {
-
+	go func() {
 		triggerExec := &storage.TriggerExecution{
 			ID:        fmt.Sprintf("texec_%d", time.Now().UnixNano()),
 			TriggerID: triggerID,
 			FiredAt:   time.Now(),
 			Status:    "running",
-			Payload:   nil, // Will be updated if payload exists
+			Payload:   nil,
 		}
 
 		if payload != nil {
@@ -531,18 +527,13 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			triggerExec.Payload = payloadBytes
 		}
 
-		// Get workflow definition
-
 		triggerRunner, exists := tm.GetTrigger(triggerID)
 		if !exists {
-			return fmt.Errorf("trigger not found: %s", triggerID)
+			log.Printf("Trigger not found: %s", triggerID)
+			return
 		}
 
 		_ = triggerRunner
-
-		// We need to access the workflow ID from the runner.
-
-		// we might need to fetch the trigger from DB or cast the runner.
 
 		trigger, err := tm.Store.GetTrigger(ctx, triggerID)
 		if err != nil {
@@ -550,7 +541,8 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			return fmt.Errorf("failed to get trigger: %w", err)
+			log.Printf("Failed to get trigger: %v", err)
+			return
 		}
 
 		workflow, err := tm.Store.GetWorkflow(ctx, trigger.WorkflowID)
@@ -559,7 +551,8 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			return fmt.Errorf("failed to get workflow: %w", err)
+			log.Printf("Failed to get workflow: %v", err)
+			return
 		}
 
 		// Parse workflow
@@ -569,19 +562,18 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			return fmt.Errorf("failed to parse workflow: %w", err)
+			log.Printf("Failed to parse workflow: %v", err)
+			return
 		}
 
-		// Create execution context
 		execCtx := NewExecutionContext(wf.ID)
 
 		if payload != nil {
 			execCtx.TriggerData = payload
 		}
 
-		runner := NewWorkflowRunner(execCtx, tm.blocksDir, tm.Store, tm.registry)
+		runner := NewWorkflowRunner(execCtx, tm.workerPool, tm.Store, tm.registry)
 
-		// Execute workflow with timeout
 		execContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 
@@ -592,15 +584,17 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			return fmt.Errorf("workflow execution failed: %w", err)
+			log.Printf("Workflow execution failed: %v", err)
+			return
 		}
 
 		triggerExec.Status = "success"
 		tm.Store.CreateTriggerExecution(ctx, triggerExec)
 
 		log.Printf("Workflow %s completed successfully", trigger.WorkflowID)
-		return nil
-	})
+	}()
+
+	return nil
 }
 
 // CronTrigger implements cron-based scheduling

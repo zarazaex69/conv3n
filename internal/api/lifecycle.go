@@ -13,17 +13,17 @@ import (
 
 // LifecycleHandler handles execution lifecycle operations (stop, restart)
 type LifecycleHandler struct {
-	Store     storage.Storage
-	Registry  *engine.ExecutionRegistry
-	BlocksDir string
+	Store      storage.Storage
+	Registry   *engine.ExecutionRegistry
+	WorkerPool *engine.WorkerPool
 }
 
 // NewLifecycleHandler creates a new lifecycle handler
-func NewLifecycleHandler(store storage.Storage, registry *engine.ExecutionRegistry, blocksDir string) *LifecycleHandler {
+func NewLifecycleHandler(store storage.Storage, registry *engine.ExecutionRegistry, workerPool *engine.WorkerPool) *LifecycleHandler {
 	return &LifecycleHandler{
-		Store:     store,
-		Registry:  registry,
-		BlocksDir: blocksDir,
+		Store:      store,
+		Registry:   registry,
+		WorkerPool: workerPool,
 	}
 }
 
@@ -105,9 +105,8 @@ func (h *LifecycleHandler) RestartExecution(w http.ResponseWriter, r *http.Reque
 
 	// Create new execution context
 	ctx := engine.NewExecutionContext(wf.ID)
-	runner := engine.NewWorkflowRunner(ctx, h.BlocksDir, h.Store, h.Registry)
+	runner := engine.NewWorkflowRunner(ctx, h.WorkerPool, h.Store, h.Registry)
 
-	// Run workflow asynchronously
 	go func() {
 		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()

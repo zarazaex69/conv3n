@@ -99,18 +99,6 @@ func (r *BunRunner) Execute(ctx context.Context, scriptPath string, input any) (
 	return result, nil
 }
 
-// ExecuteBlock executes a specific block using the appropriate template.
-
-func (r *BunRunner) ExecuteBlock(ctx context.Context, block Block, input any) (any, error) {
-	scriptPath := r.getScriptPath(NodeType(block.Type))
-	if scriptPath == "" {
-		return nil, fmt.Errorf("unknown block type: %s", block.Type)
-	}
-	return r.Execute(ctx, scriptPath, input)
-}
-
-// ExecuteNode executes a node from the graph-based workflow.
-
 func (r *BunRunner) ExecuteNode(ctx context.Context, node *Node, input any) (any, error) {
 	if err := r.RateLimiter.Wait(ctx, node.Type); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded for %s: %w", node.Type, err)

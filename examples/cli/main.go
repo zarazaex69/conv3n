@@ -52,8 +52,14 @@ func main() {
 	}
 	defer store.Close()
 
+	workerPool, err := engine.NewWorkerPool(4, "bun", "pkg/bunock/worker_server.ts")
+	if err != nil {
+		log.Fatalf("Failed to initialize worker pool: %v", err)
+	}
+	defer workerPool.Shutdown()
+
 	ctx := engine.NewExecutionContext(workflow.ID)
-	runner := engine.NewWorkflowRunner(ctx, blocksDir, store, nil)
+	runner := engine.NewWorkflowRunner(ctx, workerPool, store, nil)
 
 	fmt.Printf("Running Workflow: %s\n", workflow.Name)
 

@@ -3,35 +3,56 @@ package conv3n
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/zarazaex69/conv3n/internal/engine"
+	"github.com/zarazaex69/conv3n/internal/observability"
 	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
 type Runtime struct {
-	config   *Config
-	storage  storage.Storage
-	registry *engine.ExecutionRegistry
-	pool     *engine.WorkerPool
-	mu       sync.RWMutex
-	running  bool
+	config          *Config
+	storage         storage.Storage
+	registry        *engine.ExecutionRegistry
+	workerPool      *engine.WorkerPool
+	healthChecker   *engine.HealthChecker
+	shutdownManager *engine.ShutdownManager
+	metrics         *observability.Metrics
+	tracer          *observability.Tracer
+	logger          *observability.Logger
+	mu              sync.RWMutex
+	running         bool
 }
 
 type Config struct {
-	BlocksDir      string
-	StoragePath    string
-	MaxWorkers     int
-	EventHandler   EventHandler
-	EnableTriggers bool
+	BlocksDir       string
+	StoragePath     string
+	WorkerPoolSize  int
+	BunRuntimePath  string
+	WorkerScript    string
+	EventHandler    EventHandler
+	EnableTriggers  bool
+	LogLevel        slog.Level
+	HealthCheckTTL  time.Duration
+	ShutdownTimeout time.Duration
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		BlocksDir:      "pkg/blocks",
-		StoragePath:    "conv3n.db",
-		MaxWorkers:     10,
-		EnableTriggers: false,
+		BlocksDir:       "pkg/blocks",
+		StoragePath:     "conv3n.db",
+		WorkerPoolSize:  4,
+		BunRuntimePath:  "bun",
+		WorkerScript:    "pkg/bunock/worker_server.ts",
+		EnableTriggers:  false,
+		LogLevel:        slog.LevelInfo,
+		HealthCheckTTL:  5 * time.Second,
+		ShutdownTimeout: 30 * time.Second,
 	}
 }
 
@@ -40,21 +61,80 @@ func New(cfg *Config) (*Runtime, error) {
 		cfg = DefaultConfig()
 	}
 
+	logger := observability.NewLogger(cfg.LogLevel, os.Stdout)
+	observability.SetLogger(logger)
+
 	store, err := storage.NewSQLite(cfg.StoragePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
-	registry := engine.NewExecutionRegistry()
-	pool := engine.NewWorkerPool(cfg.MaxWorkers)
+	workerPool, err := engine.NewWorkerPool(
+		cfg.WorkerPoolSize,
+		cfg.BunRuntimePath,
+		cfg.WorkerScript,
+	)
+	if err != nil {
+		store.Close()
+		return nil, fmt.Errorf("failed to initialize worker pool: %w", err)
+	}
 
-	return &Runtime{
-		config:   cfg,
-		storage:  store,
-		registry: registry,
-		pool:     pool,
-		running:  false,
-	}, nil
+	registry := engine.NewExecutionRegistry()
+	healthChecker := engine.NewHealthChecker(cfg.HealthCheckTTL)
+	shutdownManager := engine.NewShutdownManager(logger.Logger)
+
+	healthChecker.Register("worker_pool", engine.WorkerPoolHealthCheck(workerPool))
+
+	rt := &Runtime{
+		config:          cfg,
+		storage:         store,
+		registry:        registry,
+		workerPool:      workerPool,
+		healthChecker:   healthChecker,
+		shutdownManager: shutdownManager,
+		metrics:         observability.GetMetrics(),
+		tracer:          observability.GetTracer(),
+		logger:          logger,
+		running:         false,
+	}
+
+	rt.registerShutdownHooks()
+
+	return rt, nil
+}
+
+func (r *Runtime) registerShutdownHooks() {
+	r.shutdownManager.Register(engine.ShutdownHook{
+		Name:     "cancel_executions",
+		Priority: 100,
+		Timeout:  10 * time.Second,
+		Fn: func(ctx context.Context) error {
+			r.logger.Info("cancelling active executions")
+			r.registry.CancelAll()
+			return nil
+		},
+	})
+
+	r.shutdownManager.Register(engine.ShutdownHook{
+		Name:     "worker_pool",
+		Priority: 90,
+		Timeout:  15 * time.Second,
+		Fn: func(ctx context.Context) error {
+			r.logger.Info("shutting down worker pool")
+			r.workerPool.Shutdown()
+			return nil
+		},
+	})
+
+	r.shutdownManager.Register(engine.ShutdownHook{
+		Name:     "storage",
+		Priority: 80,
+		Timeout:  5 * time.Second,
+		Fn: func(ctx context.Context) error {
+			r.logger.Info("closing storage")
+			return r.storage.Close()
+		},
+	})
 }
 
 func (r *Runtime) Start(ctx context.Context) error {
@@ -65,7 +145,15 @@ func (r *Runtime) Start(ctx context.Context) error {
 		return ErrAlreadyRunning
 	}
 
+	r.logger.Info("runtime starting",
+		slog.String("blocks_dir", r.config.BlocksDir),
+		slog.Int("worker_pool_size", r.config.WorkerPoolSize),
+	)
+
 	r.running = true
+	r.metrics.Gauge("runtime.status", nil).Set(1)
+
+	r.logger.Info("runtime started successfully")
 	return nil
 }
 
@@ -77,20 +165,32 @@ func (r *Runtime) Stop(ctx context.Context) error {
 		return ErrNotRunning
 	}
 
-	r.pool.Wait()
-	r.registry.CancelAll()
-	r.running = false
+	r.logger.Info("runtime stopping")
 
+	shutdownCtx, cancel := context.WithTimeout(ctx, r.config.ShutdownTimeout)
+	defer cancel()
+
+	if err := r.shutdownManager.Shutdown(shutdownCtx); err != nil {
+		r.logger.Error("shutdown completed with errors", slog.Any("error", err))
+	}
+
+	r.running = false
+	r.metrics.Gauge("runtime.status", nil).Set(0)
+
+	r.logger.Info("runtime stopped")
 	return nil
 }
 
-func (r *Runtime) Execute(ctx context.Context, wf *Workflow, input map[string]interface{}) (*ExecutionHandle, error) {
+func (r *Runtime) Execute(ctx context.Context, wf *Workflow, input map[string]any) (*ExecutionHandle, error) {
 	r.mu.RLock()
 	if !r.running {
 		r.mu.RUnlock()
 		return nil, ErrNotRunning
 	}
 	r.mu.RUnlock()
+
+	span, ctx := r.tracer.StartSpan(ctx, "runtime.execute")
+	defer span.End()
 
 	engineWf := wf.toEngine()
 
@@ -99,17 +199,13 @@ func (r *Runtime) Execute(ctx context.Context, wf *Workflow, input map[string]in
 		execCtx.TriggerData = input
 	}
 
-	runner := engine.NewWorkflowRunner(execCtx, r.config.BlocksDir, r.storage, r.registry)
-	if err := runner.LoadBlocks(); err != nil {
-		return nil, fmt.Errorf("failed to load blocks: %w", err)
-	}
+	runner := engine.NewWorkflowRunner(execCtx, r.workerPool, r.storage, r.registry)
 
-	execID, err := r.storage.CreateExecution(ctx, engineWf.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create execution: %w", err)
+	execID := execCtx.ExecutionID
+	if execID == "" {
+		execID = fmt.Sprintf("exec-%d", time.Now().UnixNano())
+		execCtx.ExecutionID = execID
 	}
-
-	execCtx.ExecutionID = execID
 
 	handle := &ExecutionHandle{
 		id:       execID,
@@ -126,27 +222,72 @@ func (r *Runtime) Execute(ctx context.Context, wf *Workflow, input map[string]in
 		r.config.EventHandler.OnExecutionStart(execID, engineWf.ID)
 	}
 
-	err = r.pool.Execute(execContext, func() error {
+	go func() {
 		defer r.registry.Unregister(execID)
 
 		if err := runner.Run(execContext, *engineWf); err != nil {
+			r.logger.Error("execution failed",
+				slog.String("execution_id", execID),
+				slog.Any("error", err),
+			)
 			if r.config.EventHandler != nil {
 				r.config.EventHandler.OnExecutionComplete(execID, err)
 			}
-			return err
+			span.SetStatus(observability.StatusCodeError, err.Error())
+			return
 		}
 
 		if r.config.EventHandler != nil {
 			r.config.EventHandler.OnExecutionComplete(execID, nil)
 		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to submit execution: %w", err)
-	}
+		span.SetStatus(observability.StatusCodeOK, "")
+	}()
 
 	return handle, nil
+}
+
+func (r *Runtime) Health(ctx context.Context) map[string]any {
+	results := r.healthChecker.Check(ctx)
+	overallStatus := r.healthChecker.OverallStatus(ctx)
+
+	health := map[string]any{
+		"status":     string(overallStatus),
+		"timestamp":  time.Now().Format(time.RFC3339),
+		"components": make(map[string]any),
+	}
+
+	for name, component := range results {
+		health["components"].(map[string]any)[name] = map[string]any{
+			"status":    string(component.Status),
+			"message":   component.Message,
+			"timestamp": component.Timestamp.Format(time.RFC3339),
+			"metadata":  component.Metadata,
+		}
+	}
+
+	return health
+}
+
+func (r *Runtime) Metrics() map[string]any {
+	return r.metrics.Snapshot()
+}
+
+func (r *Runtime) Traces() []map[string]any {
+	return r.tracer.ExportAll()
+}
+
+func (r *Runtime) WaitForShutdown(ctx context.Context) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case sig := <-sigChan:
+		r.logger.Info("received shutdown signal", slog.String("signal", sig.String()))
+		r.Stop(ctx)
+	case <-ctx.Done():
+		r.logger.Info("context cancelled")
+		r.Stop(context.Background())
+	}
 }
 
 func (r *Runtime) GetExecution(ctx context.Context, execID string) (*ExecutionStatus, error) {
@@ -188,8 +329,5 @@ func (r *Runtime) ListExecutions(ctx context.Context, workflowID string, limit i
 
 func (r *Runtime) Close() error {
 	ctx := context.Background()
-	if err := r.Stop(ctx); err != nil && err != ErrNotRunning {
-		return err
-	}
-	return r.storage.Close()
+	return r.Stop(ctx)
 }

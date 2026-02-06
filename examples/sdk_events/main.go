@@ -94,16 +94,20 @@ func main() {
 		},
 	}
 
-	runner := engine.NewGraphRunner(workflow, "pkg/blocks", store)
+	workerPool, err := engine.NewWorkerPool(4, "bun", "pkg/bunock/worker_server.ts")
+	if err != nil {
+		log.Fatalf("Failed to initialize worker pool: %v", err)
+	}
+	defer workerPool.Shutdown()
 
-	listener := &ConsoleEventListener{}
-	runner.SetEventListener(listener)
+	execCtx := engine.NewExecutionContext(workflow.ID)
+	runner := engine.NewWorkflowRunner(execCtx, workerPool, store, nil)
 
-	fmt.Println("Starting workflow execution with event monitoring...")
+	fmt.Println("Starting workflow execution...")
 	fmt.Println()
 
 	ctx := context.Background()
-	if err := runner.Run(ctx); err != nil {
+	if err := runner.Run(ctx, *workflow); err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 

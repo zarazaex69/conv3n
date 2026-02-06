@@ -156,7 +156,7 @@ func StorageHealthCheck(storage interface{ Ping(context.Context) error }) Health
 	}
 }
 
-func WorkerPoolHealthCheck(pool *WorkerPoolV2) HealthCheckFunc {
+func WorkerPoolHealthCheck(pool *WorkerPool) HealthCheckFunc {
 	return func(ctx context.Context) *ComponentHealth {
 		health := &ComponentHealth{
 			Name:      "worker_pool",

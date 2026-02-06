@@ -45,14 +45,14 @@ func (h *LoggingHandler) OnNodeExecute(execID, nodeID string, result map[string]
 }
 
 func main() {
-	cfg := conv3n.DefaultConfigV2()
+	cfg := conv3n.DefaultConfig()
 	cfg.BlocksDir = "pkg/blocks"
 	cfg.StoragePath = "production.db"
 	cfg.WorkerPoolSize = 8
 	cfg.LogLevel = slog.LevelInfo
 	cfg.EventHandler = &LoggingHandler{}
 
-	runtime, err := conv3n.NewV2(cfg)
+	runtime, err := conv3n.New(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create runtime: %v", err)
 	}
@@ -119,7 +119,7 @@ func main() {
 	runtime.WaitForShutdown(ctx)
 }
 
-func startHTTPServer(runtime *conv3n.RuntimeV2) {
+func startHTTPServer(runtime *conv3n.Runtime) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

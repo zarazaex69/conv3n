@@ -1,7 +1,5 @@
 package engine
 
-import "fmt"
-
 // =============================================================================
 
 // =============================================================================
@@ -10,7 +8,6 @@ import "fmt"
 type NodeType string
 
 const (
-
 	NodeTypeHTTPRequest NodeType = "std/http_request"
 	NodeTypeCustomCode  NodeType = "custom/code"
 	NodeTypeCondition   NodeType = "std/condition"
@@ -185,101 +182,47 @@ func (ctx *ExecutionContext) GetVar(name string) interface{} {
 
 // BlockResult represents the output from a Bun worker execution.
 
-type BlockResult struct {
-	Data interface{} `json:"data"` // Output data
-	Port string      `json:"port"` // Output port name (e.g., "default", "true", "false")
+type NodeResult struct {
+	Data interface{} `json:"data"`
+	Port string      `json:"port"`
+}
+
+func parseNodeResult(raw interface{}) *NodeResult {
+	result := &NodeResult{
+		Data: raw,
+		Port: "default",
+	}
+
+	resMap, ok := raw.(map[string]interface{})
+	if !ok {
+		return result
+	}
+
+	if port, hasPort := resMap["port"]; hasPort {
+		if portStr, ok := port.(string); ok {
+			result.Port = portStr
+		}
+	}
+
+	if data, hasData := resMap["data"]; hasData {
+		result.Data = data
+
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			if condResult, hasResult := dataMap["result"]; hasResult {
+				if boolResult, ok := condResult.(bool); ok {
+					if boolResult {
+						result.Port = "true"
+					} else {
+						result.Port = "false"
+					}
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 // =============================================================================
 
 // =============================================================================
-
-// BlockType is an alias for NodeType (legacy compatibility).
-type BlockType = NodeType
-
-// Legacy constants for backward compatibility with existing tests.
-const (
-	BlockTypeHTTPRequest = NodeTypeHTTPRequest
-	BlockTypeCustomCode  = NodeTypeCustomCode
-	BlockTypeCondition   = NodeTypeCondition
-	BlockTypeLoop        = NodeTypeLoop
-	BlockTypeTransform   = NodeTypeTransform
-)
-
-// Block is the legacy structure for linear workflows.
-
-type Block struct {
-	ID     string                 `json:"id"`
-	Type   BlockType              `json:"type"`
-	Config map[string]interface{} `json:"config"`
-	Code   string                 `json:"code,omitempty"`
-}
-
-// Connection is the legacy structure for simple connections.
-
-type Connection struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
-// LegacyWorkflow is the old linear workflow structure.
-
-type LegacyWorkflow struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Blocks      []Block      `json:"blocks"`
-	Connections []Connection `json:"connections"`
-}
-
-// ToGraphWorkflow converts a legacy linear workflow to the new graph format.
-func (lw *LegacyWorkflow) ToGraphWorkflow() *Workflow {
-	nodes := make(map[string]Node)
-	var edges []Edge
-
-	// Convert blocks to nodes with auto-positioned layout
-	for i, block := range lw.Blocks {
-		nodes[block.ID] = Node{
-			ID:   block.ID,
-			Type: NodeType(block.Type),
-			Position: Position{
-				X: float64(i * 250), // Horizontal layout
-				Y: 100,
-			},
-			Config: block.Config,
-			Data: map[string]interface{}{
-				"label": block.ID,
-			},
-		}
-	}
-
-	// Convert connections to edges
-	for i, conn := range lw.Connections {
-		edges = append(edges, Edge{
-			ID:           fmt.Sprintf("e%d", i),
-			Source:       conn.From,
-			Target:       conn.To,
-			SourceHandle: "default",
-			TargetHandle: "main",
-		})
-	}
-
-	// If no explicit connections, create linear chain
-	if len(edges) == 0 && len(lw.Blocks) > 1 {
-		for i := 0; i < len(lw.Blocks)-1; i++ {
-			edges = append(edges, Edge{
-				ID:           fmt.Sprintf("e%d", i),
-				Source:       lw.Blocks[i].ID,
-				Target:       lw.Blocks[i+1].ID,
-				SourceHandle: "default",
-				TargetHandle: "main",
-			})
-		}
-	}
-
-	return &Workflow{
-		ID:    lw.ID,
-		Name:  lw.Name,
-		Nodes: nodes,
-		Edges: edges,
-	}
-}

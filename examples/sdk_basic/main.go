@@ -34,7 +34,7 @@ func main() {
 	cfg := conv3n.DefaultConfig()
 	cfg.BlocksDir = "pkg/blocks"
 	cfg.StoragePath = "examples_sdk.db"
-	cfg.MaxWorkers = 5
+	cfg.WorkerPoolSize = 5
 	cfg.EventHandler = &LoggingHandler{}
 
 	runtime, err := conv3n.New(cfg)
