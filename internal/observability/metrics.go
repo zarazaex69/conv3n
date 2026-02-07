@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -161,11 +162,15 @@ func metricKey(name string, labels map[string]string) string {
 		return name
 	}
 
-	key := name
+	var b strings.Builder
+	b.WriteString(name)
 	for k, v := range labels {
-		key += ":" + k + "=" + v
+		b.WriteString(":")
+		b.WriteString(k)
+		b.WriteString("=")
+		b.WriteString(v)
 	}
-	return key
+	return b.String()
 }
 
 func (m *Metrics) Snapshot() map[string]any {

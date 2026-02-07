@@ -12,14 +12,14 @@ var variableRegex = regexp.MustCompile(`\{\{\s*([^}]+)\s*\}\}`)
 
 // ResolveVariables traverses the config (input) and replaces templates with real data from context.
 
-func ResolveVariables(input interface{}, ctx *ExecutionContext) (interface{}, error) {
+func ResolveVariables(input any, ctx *ExecutionContext) (any, error) {
 	switch v := input.(type) {
 	case string:
 
 		return replaceString(v, ctx)
-	case map[string]interface{}:
+	case map[string]any:
 
-		newMap := make(map[string]interface{})
+		newMap := make(map[string]any)
 		for k, val := range v {
 			resolved, err := ResolveVariables(val, ctx)
 			if err != nil {
@@ -28,9 +28,9 @@ func ResolveVariables(input interface{}, ctx *ExecutionContext) (interface{}, er
 			newMap[k] = resolved
 		}
 		return newMap, nil
-	case []interface{}:
+	case []any:
 
-		newSlice := make([]interface{}, len(v))
+		newSlice := make([]any, len(v))
 		for i, val := range v {
 			resolved, err := ResolveVariables(val, ctx)
 			if err != nil {
@@ -45,7 +45,7 @@ func ResolveVariables(input interface{}, ctx *ExecutionContext) (interface{}, er
 	}
 }
 
-func replaceString(str string, ctx *ExecutionContext) (interface{}, error) {
+func replaceString(str string, ctx *ExecutionContext) (any, error) {
 
 	matches := variableRegex.FindAllStringSubmatch(str, -1)
 	if len(matches) == 0 {
@@ -82,16 +82,15 @@ func replaceString(str string, ctx *ExecutionContext) (interface{}, error) {
 // - $node.ID.data.field - access node results
 
 // - $error.message - access error info (in catch blocks)
-func getValueByPath(path string, ctx *ExecutionContext) (interface{}, error) {
+func getValueByPath(path string, ctx *ExecutionContext) (any, error) {
 	parts := strings.Split(path, ".")
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("empty path")
 	}
 
-	// Determine the root scope
 	root := parts[0]
 
-	var current interface{}
+	var current any
 
 	switch root {
 	case "$node":
@@ -100,7 +99,7 @@ func getValueByPath(path string, ctx *ExecutionContext) (interface{}, error) {
 			return nil, fmt.Errorf("$node requires at least node ID: $node.ID")
 		}
 		current = ctx.Results
-		parts = parts[1:] // Skip $node prefix
+		parts = parts[1:]
 
 	case "$vars":
 
@@ -126,7 +125,7 @@ func getValueByPath(path string, ctx *ExecutionContext) (interface{}, error) {
 		}
 
 		if len(parts) == 1 {
-			errorMap := map[string]interface{}{
+			errorMap := map[string]any{
 				"message":   ctx.LastError.Message,
 				"node_id":   ctx.LastError.NodeID,
 				"timestamp": ctx.LastError.Timestamp,
@@ -151,16 +150,14 @@ func getValueByPath(path string, ctx *ExecutionContext) (interface{}, error) {
 
 	default:
 
-		// e.g., "block_1.data.field" -> same as "$node.block_1.data.field"
 		current = ctx.Results
 	}
 
-	// Traverse the path
 	for _, key := range parts {
 
 		key = strings.Trim(key, "[]\"'")
 
-		asMap, ok := current.(map[string]interface{})
+		asMap, ok := current.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("cannot traverse path %s: not a map (got %T)", key, current)
 		}

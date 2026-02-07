@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"container/heap"
 	"sync"
 	"time"
 )
@@ -14,9 +15,44 @@ const (
 )
 
 type ScopedVariable struct {
-	Value     interface{}
+	Value     any
 	Scope     VariableScope
 	ExpiresAt *time.Time
+}
+
+type expiryItem struct {
+	key       string
+	scope     VariableScope
+	scopeKey  string
+	expiresAt time.Time
+	index     int
+}
+
+type expiryHeap []*expiryItem
+
+func (h expiryHeap) Len() int           { return len(h) }
+func (h expiryHeap) Less(i, j int) bool { return h[i].expiresAt.Before(h[j].expiresAt) }
+func (h expiryHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index = i
+	h[j].index = j
+}
+
+func (h *expiryHeap) Push(x any) {
+	n := len(*h)
+	item := x.(*expiryItem)
+	item.index = n
+	*h = append(*h, item)
+}
+
+func (h *expiryHeap) Pop() any {
+	old := *h
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.index = -1
+	*h = old[0 : n-1]
+	return item
 }
 
 type VariableStore struct {
@@ -25,6 +61,8 @@ type VariableStore struct {
 	execution map[string]map[string]*ScopedVariable
 	mu        sync.RWMutex
 	stopChan  chan struct{}
+	expiry    expiryHeap
+	expiryMu  sync.Mutex
 }
 
 func NewVariableStore() *VariableStore {
@@ -33,14 +71,16 @@ func NewVariableStore() *VariableStore {
 		workflow:  make(map[string]map[string]*ScopedVariable),
 		execution: make(map[string]map[string]*ScopedVariable),
 		stopChan:  make(chan struct{}),
+		expiry:    make(expiryHeap, 0),
 	}
 
+	heap.Init(&store.expiry)
 	go store.cleanupExpired()
 
 	return store
 }
 
-func (vs *VariableStore) Set(workflowID, executionID, name string, value interface{}, scope VariableScope, ttl *time.Duration) {
+func (vs *VariableStore) Set(workflowID, executionID, name string, value any, scope VariableScope, ttl *time.Duration) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -56,23 +96,38 @@ func (vs *VariableStore) Set(workflowID, executionID, name string, value interfa
 		ExpiresAt: expiresAt,
 	}
 
+	var scopeKey string
 	switch scope {
 	case ScopeGlobal:
 		vs.global[name] = variable
+		scopeKey = "global"
 	case ScopeWorkflow:
 		if vs.workflow[workflowID] == nil {
 			vs.workflow[workflowID] = make(map[string]*ScopedVariable)
 		}
 		vs.workflow[workflowID][name] = variable
+		scopeKey = workflowID
 	case ScopeExecution:
 		if vs.execution[executionID] == nil {
 			vs.execution[executionID] = make(map[string]*ScopedVariable)
 		}
 		vs.execution[executionID][name] = variable
+		scopeKey = executionID
+	}
+
+	if expiresAt != nil {
+		vs.expiryMu.Lock()
+		heap.Push(&vs.expiry, &expiryItem{
+			key:       name,
+			scope:     scope,
+			scopeKey:  scopeKey,
+			expiresAt: *expiresAt,
+		})
+		vs.expiryMu.Unlock()
 	}
 }
 
-func (vs *VariableStore) Get(workflowID, executionID, name string) (interface{}, bool) {
+func (vs *VariableStore) Get(workflowID, executionID, name string) (any, bool) {
 	vs.mu.RLock()
 	defer vs.mu.RUnlock()
 
@@ -125,32 +180,53 @@ func (vs *VariableStore) isExpired(v *ScopedVariable) bool {
 }
 
 func (vs *VariableStore) cleanupExpired() {
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			vs.mu.Lock()
-			vs.cleanupMap(vs.global)
-			for _, wfVars := range vs.workflow {
-				vs.cleanupMap(wfVars)
-			}
-			for _, execVars := range vs.execution {
-				vs.cleanupMap(execVars)
-			}
-			vs.mu.Unlock()
+			vs.processExpiredVariables()
 		case <-vs.stopChan:
 			return
 		}
 	}
 }
 
-func (vs *VariableStore) cleanupMap(m map[string]*ScopedVariable) {
-	for name, v := range m {
-		if vs.isExpired(v) {
-			delete(m, name)
+func (vs *VariableStore) processExpiredVariables() {
+	now := time.Now()
+
+	vs.expiryMu.Lock()
+	defer vs.expiryMu.Unlock()
+
+	for vs.expiry.Len() > 0 {
+		item := vs.expiry[0]
+		if item.expiresAt.After(now) {
+			break
 		}
+
+		heap.Pop(&vs.expiry)
+
+		vs.mu.Lock()
+		switch item.scope {
+		case ScopeGlobal:
+			if v, exists := vs.global[item.key]; exists && vs.isExpired(v) {
+				delete(vs.global, item.key)
+			}
+		case ScopeWorkflow:
+			if wfVars, ok := vs.workflow[item.scopeKey]; ok {
+				if v, exists := wfVars[item.key]; exists && vs.isExpired(v) {
+					delete(wfVars, item.key)
+				}
+			}
+		case ScopeExecution:
+			if execVars, ok := vs.execution[item.scopeKey]; ok {
+				if v, exists := execVars[item.key]; exists && vs.isExpired(v) {
+					delete(execVars, item.key)
+				}
+			}
+		}
+		vs.mu.Unlock()
 	}
 }
 

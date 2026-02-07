@@ -341,94 +341,108 @@ func (tr *TSTriggerRunner) sendToTS(msg interface{}) error {
 
 // readStdoutLoop continuously reads and processes messages from the Bun process's stdout.
 func (tr *TSTriggerRunner) readStdoutLoop(ctx context.Context) {
-	for tr.stdoutScanner.Scan() {
-		line := tr.stdoutScanner.Text()
-		if line == "" {
-			continue
-		}
+	defer func() {
+		log.Printf("TS trigger %s: stdout read loop exited.", tr.id)
+	}()
 
-		var msg map[string]interface{}
-		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			log.Printf("TS trigger %s: failed to unmarshal stdout message '%s': %v", tr.id, line, err)
-			continue
-		}
-
-		msgType, ok := msg["type"].(string)
-		if !ok {
-			log.Printf("TS trigger %s: received message with missing or invalid 'type' field: %v", tr.id, msg)
-			continue
-		}
-
-		switch msgType {
-		case "status":
-			status, sOk := msg["status"].(string)
-			if !sOk {
-				log.Printf("TS trigger %s: received status message with missing or invalid 'status' field: %v", tr.id, msg)
-				continue
-			}
-			if status == "ready" {
-				tr.readyChan <- nil // Signal that the trigger is ready
-			} else if status == "error" {
-				errMsg, _ := msg["message"].(string)
-				tr.readyChan <- fmt.Errorf("startup error: %s", errMsg)
-			}
-
-		case "event":
-
-			requestId, rOk := msg["requestId"].(string)
-			payload, pOk := msg["payload"].(map[string]interface{})
-			if !rOk || !pOk {
-				log.Printf("TS trigger %s: received event message with missing or invalid 'requestId' or 'payload': %v", tr.id, msg)
-				continue
-			}
-
-			// Fire the workflow and capture the result/error
-			go func(reqID string, pld map[string]interface{}) {
-				workflowCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) // Workflow execution timeout
-				defer cancel()
-
-				err := tr.manager.Fire(workflowCtx, tr.id, pld)
-
-				// Send reply back to the TS trigger
-				replyMsg := map[string]interface{}{
-					"type":      "reply",
-					"requestId": reqID,
-				}
-				if err != nil {
-					replyMsg["error"] = err.Error()
-				} else {
-
-					// For now, Fire only returns error.
-				}
-				if sendErr := tr.sendToTS(replyMsg); sendErr != nil {
-					log.Printf("TS trigger %s: failed to send reply for request %s: %v", tr.id, reqID, sendErr)
-				}
-			}(requestId, payload)
-
-		case "error":
-			errMsg, _ := msg["message"].(string)
-			stack, _ := msg["stack"].(string)
-			log.Printf("TS trigger %s: Error from Bun process: %s\n%s", tr.id, errMsg, stack)
-
+	readTimeout := 30 * time.Second
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("TS trigger %s: stdout read loop cancelled by context.", tr.id)
+			return
 		default:
-			log.Printf("TS trigger %s: received unknown message type '%s': %v", tr.id, msgType, msg)
 		}
-	}
 
-	// If scanner returns an error, log it
-	if err := tr.stdoutScanner.Err(); err != nil {
-		log.Printf("TS trigger %s: stdout scanner error: %v", tr.id, err)
-	}
+		done := make(chan bool, 1)
+		go func() {
+			tr.stdoutScanner.Scan()
+			done <- true
+		}()
 
-	log.Printf("TS trigger %s: stdout read loop exited.", tr.id)
+		select {
+		case <-done:
+			if err := tr.stdoutScanner.Err(); err != nil {
+				log.Printf("TS trigger %s: stdout scanner error: %v", tr.id, err)
+				return
+			}
 
-	// Check if the process exited unexpectedly
-	select {
-	case <-ctx.Done(): // Context was cancelled (e.g., graceful shutdown)
-		log.Printf("TS trigger %s: stdout read loop exited due to context cancellation.", tr.id)
-	default: // Process exited without explicit cancellation
-		if tr.cmd != nil && tr.cmd.ProcessState != nil && !tr.cmd.ProcessState.Exited() {
-			log.Printf("TS trigger %s: Bun process exited unexpectedly, PID: %d", tr.id, tr.cmd.Process.Pid)
+			line := tr.stdoutScanner.Text()
+			if line == "" {
+				continue
+			}
+
+			var msg map[string]interface{}
+			if err := json.Unmarshal([]byte(line), &msg); err != nil {
+				log.Printf("TS trigger %s: failed to unmarshal stdout message '%s': %v", tr.id, line, err)
+				continue
+			}
+
+			msgType, ok := msg["type"].(string)
+			if !ok {
+				log.Printf("TS trigger %s: received message with missing or invalid 'type' field: %v", tr.id, msg)
+				continue
+			}
+
+			switch msgType {
+			case "status":
+				status, sOk := msg["status"].(string)
+				if !sOk {
+					log.Printf("TS trigger %s: received status message with missing or invalid 'status' field: %v", tr.id, msg)
+					continue
+				}
+				if status == "ready" {
+					tr.readyChan <- nil
+				} else if status == "error" {
+					errMsg, _ := msg["message"].(string)
+					tr.readyChan <- fmt.Errorf("startup error: %s", errMsg)
+				}
+
+			case "event":
+
+				requestId, rOk := msg["requestId"].(string)
+				payload, pOk := msg["payload"].(map[string]interface{})
+				if !rOk || !pOk {
+					log.Printf("TS trigger %s: received event message with missing or invalid 'requestId' or 'payload': %v", tr.id, msg)
+					continue
+				}
+
+				go func(reqID string, pld map[string]interface{}) {
+					workflowCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					defer cancel()
+
+					err := tr.manager.Fire(workflowCtx, tr.id, pld)
+
+					replyMsg := map[string]interface{}{
+						"type":      "reply",
+						"requestId": reqID,
+					}
+					if err != nil {
+						replyMsg["error"] = err.Error()
+					}
+					if sendErr := tr.sendToTS(replyMsg); sendErr != nil {
+						log.Printf("TS trigger %s: failed to send reply for request %s: %v", tr.id, reqID, sendErr)
+					}
+				}(requestId, payload)
+
+			case "error":
+				errMsg, _ := msg["message"].(string)
+				stack, _ := msg["stack"].(string)
+				log.Printf("TS trigger %s: Error from Bun process: %s\n%s", tr.id, errMsg, stack)
+
+			default:
+				log.Printf("TS trigger %s: received unknown message type '%s': %v", tr.id, msgType, msg)
+			}
+
+		case <-time.After(readTimeout):
+			log.Printf("TS trigger %s: read timeout after %v, checking process health", tr.id, readTimeout)
+			if tr.cmd != nil && tr.cmd.ProcessState != nil && tr.cmd.ProcessState.Exited() {
+				log.Printf("TS trigger %s: Bun process exited unexpectedly", tr.id)
+				return
+			}
+		case <-ctx.Done():
+			log.Printf("TS trigger %s: stdout read loop cancelled during read.", tr.id)
+			return
 		}
 	}
 }

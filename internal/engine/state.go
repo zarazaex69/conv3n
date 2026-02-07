@@ -14,23 +14,21 @@ func NewStateManager(ctx *ExecutionContext) *StateManager {
 }
 
 // SetResult saves the output of a block.
-func (sm *StateManager) SetResult(blockID string, result interface{}) {
+func (sm *StateManager) SetResult(blockID string, result any) {
 	sm.ctx.Results[blockID] = result
 }
 
-func (sm *StateManager) GetResult(nodeID string) interface{} {
+func (sm *StateManager) GetResult(nodeID string) any {
 	return sm.ctx.Results[nodeID]
 }
 
-func (sm *StateManager) PrepareInput(node *Node) (map[string]interface{}, error) {
+func (sm *StateManager) PrepareInput(node *Node) (map[string]any, error) {
 	resolvedConfig, err := ResolveVariables(node.Config, sm.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve variables in config: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"config": resolvedConfig,
-
-		// "context": sm.ctx.Results,
 	}, nil
 }

@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 	"time"
 )
@@ -95,9 +96,7 @@ func (s *Span) SetAttribute(key string, value any) {
 func (s *Span) SetAttributes(attrs map[string]any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for k, v := range attrs {
-		s.attributes[k] = v
-	}
+	maps.Copy(s.attributes, attrs)
 }
 
 func (s *Span) AddEvent(name string, attrs map[string]any) {

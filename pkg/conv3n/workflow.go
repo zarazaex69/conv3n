@@ -23,8 +23,8 @@ type Node struct {
 	ID       string
 	Type     string
 	Position Position
-	Config   map[string]interface{}
-	Data     map[string]interface{}
+	Config   map[string]any
+	Data     map[string]any
 }
 
 type Edge struct {

@@ -26,6 +26,7 @@ type WorkerPool struct {
 	shutdownChan  chan struct{}
 	wg            sync.WaitGroup
 	activeWorkers atomic.Int32
+	restartMu     sync.Mutex
 }
 
 type WorkerTask struct {
@@ -129,7 +130,58 @@ func (p *WorkerPool) startWorker(id int) (*BunWorker, error) {
 	worker.healthy.Store(true)
 	p.activeWorkers.Add(1)
 
+	go p.monitorWorker(worker)
+
 	return worker, nil
+}
+
+func (p *WorkerPool) monitorWorker(worker *BunWorker) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if !worker.healthy.Load() {
+				p.restartWorker(worker)
+				return
+			}
+
+			if worker.cmd != nil && worker.cmd.ProcessState != nil && worker.cmd.ProcessState.Exited() {
+				worker.healthy.Store(false)
+				p.restartWorker(worker)
+				return
+			}
+		case <-p.shutdownChan:
+			return
+		}
+	}
+}
+
+func (p *WorkerPool) restartWorker(oldWorker *BunWorker) {
+	p.restartMu.Lock()
+	defer p.restartMu.Unlock()
+
+	if !oldWorker.healthy.Load() {
+		p.activeWorkers.Add(-1)
+	}
+
+	oldWorker.shutdown()
+
+	newWorker, err := p.startWorker(oldWorker.id)
+	if err != nil {
+		fmt.Printf("Failed to restart worker %d: %v\n", oldWorker.id, err)
+		return
+	}
+
+	for i, w := range p.workers {
+		if w.id == oldWorker.id {
+			p.workers[i] = newWorker
+			break
+		}
+	}
+
+	fmt.Printf("Worker %d restarted successfully\n", oldWorker.id)
 }
 
 func (p *WorkerPool) dispatcher() {

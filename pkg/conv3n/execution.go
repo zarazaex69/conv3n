@@ -69,13 +69,13 @@ func (h *ExecutionHandle) Status(ctx context.Context) (*ExecutionStatus, error) 
 	}, nil
 }
 
-func (h *ExecutionHandle) GetNodeResult(ctx context.Context, nodeID string) (map[string]interface{}, error) {
+func (h *ExecutionHandle) GetNodeResult(ctx context.Context, nodeID string) (map[string]any, error) {
 	resultBytes, err := h.storage.GetNodeResult(ctx, h.id, nodeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node result: %w", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(resultBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse node result: %w", err)
 	}
@@ -83,13 +83,13 @@ func (h *ExecutionHandle) GetNodeResult(ctx context.Context, nodeID string) (map
 	return result, nil
 }
 
-func (h *ExecutionHandle) GetState(ctx context.Context) (map[string]interface{}, error) {
+func (h *ExecutionHandle) GetState(ctx context.Context) (map[string]any, error) {
 	exec, err := h.storage.GetExecution(ctx, h.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get execution: %w", err)
 	}
 
-	var state map[string]interface{}
+	var state map[string]any
 	if err := json.Unmarshal(exec.State, &state); err != nil {
 		return nil, fmt.Errorf("failed to parse state: %w", err)
 	}

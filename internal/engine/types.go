@@ -51,11 +51,11 @@ type Position struct {
 
 // Node represents a single block in the workflow graph.
 type Node struct {
-	ID       string                 `json:"id"`
-	Type     NodeType               `json:"type"`
-	Position Position               `json:"position"`
-	Config   map[string]interface{} `json:"config,omitempty"`
-	Data     map[string]interface{} `json:"data,omitempty"`
+	ID       string         `json:"id"`
+	Type     NodeType       `json:"type"`
+	Position Position       `json:"position"`
+	Config   map[string]any `json:"config,omitempty"`
+	Data     map[string]any `json:"data,omitempty"`
 }
 
 // Edge represents a connection between two nodes.
@@ -149,9 +149,9 @@ type ErrorContext struct {
 type ExecutionContext struct {
 	WorkflowID    string
 	ExecutionID   string
-	Results       map[string]interface{}
-	Variables     map[string]interface{}
-	TriggerData   map[string]interface{}
+	Results       map[string]any
+	Variables     map[string]any
+	TriggerData   map[string]any
 	VariableStore *VariableStore
 	LastError     *ErrorContext
 }
@@ -160,9 +160,9 @@ type ExecutionContext struct {
 func NewExecutionContext(workflowID string) *ExecutionContext {
 	return &ExecutionContext{
 		WorkflowID:    workflowID,
-		Results:       make(map[string]interface{}),
-		Variables:     make(map[string]interface{}),
-		TriggerData:   make(map[string]interface{}),
+		Results:       make(map[string]any),
+		Variables:     make(map[string]any),
+		TriggerData:   make(map[string]any),
 		VariableStore: NewVariableStore(),
 	}
 }
@@ -210,17 +210,17 @@ func (ctx *ExecutionContext) ClearError() {
 // BlockResult represents the output from a Bun worker execution.
 
 type NodeResult struct {
-	Data interface{} `json:"data"`
-	Port string      `json:"port"`
+	Data any    `json:"data"`
+	Port string `json:"port"`
 }
 
-func parseNodeResult(raw interface{}) *NodeResult {
+func parseNodeResult(raw any) *NodeResult {
 	result := &NodeResult{
 		Data: raw,
 		Port: "default",
 	}
 
-	resMap, ok := raw.(map[string]interface{})
+	resMap, ok := raw.(map[string]any)
 	if !ok {
 		return result
 	}
@@ -234,7 +234,7 @@ func parseNodeResult(raw interface{}) *NodeResult {
 	if data, hasData := resMap["data"]; hasData {
 		result.Data = data
 
-		if dataMap, ok := data.(map[string]interface{}); ok {
+		if dataMap, ok := data.(map[string]any); ok {
 			if condResult, hasResult := dataMap["result"]; hasResult {
 				if boolResult, ok := condResult.(bool); ok {
 					if boolResult {
