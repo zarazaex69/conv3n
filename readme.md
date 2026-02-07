@@ -21,20 +21,6 @@ Conv3n is an embeddable workflow automation engine for Go applications.
 - **Block Runtime**: Bun for TypeScript/JavaScript blocks
 - **SDK**: TypeScript SDK for custom block development
 
-## Documentation
-
-- [Quick Start](docs/quickstart.md) - Get started in 5 minutes
-- [Core Concepts](docs/concepts.md) - Workflows, nodes, edges
-- [Standard Blocks](docs/blocks.md) - Built-in blocks
-- [Event Handling](docs/events.md) - Monitor execution
-- [Storage](docs/storage.md) - Execution history
-- [Triggers](docs/triggers.md) - Automated execution
-
-**SDK:**
-- [Overview](docs/sdk/overview.md) - TypeScript SDK
-- [Building Blocks](docs/sdk/blocks.md) - Custom blocks
-- [Building Triggers](docs/sdk/triggers.md) - Custom triggers
-
 
 <div align="center">
 
