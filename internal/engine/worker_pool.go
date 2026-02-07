@@ -19,7 +19,9 @@ type WorkerPool struct {
 	workers       []*BunWorker
 	taskQueue     chan *WorkerTask
 	resultQueue   chan *WorkerResult
-	size          int
+	minSize       int
+	maxSize       int
+	currentSize   atomic.Int32
 	runtimePath   string
 	workerScript  string
 	shutdownOnce  sync.Once
@@ -27,6 +29,8 @@ type WorkerPool struct {
 	wg            sync.WaitGroup
 	activeWorkers atomic.Int32
 	restartMu     sync.Mutex
+	scaleTicker   *time.Ticker
+	workersMu     sync.RWMutex
 }
 
 type WorkerTask struct {
@@ -62,13 +66,15 @@ func NewWorkerPool(size int, runtimePath, workerScript string) (*WorkerPool, err
 	}
 
 	pool := &WorkerPool{
-		workers:      make([]*BunWorker, 0, size),
-		taskQueue:    make(chan *WorkerTask, size*2),
-		resultQueue:  make(chan *WorkerResult, size*2),
-		size:         size,
+		workers:      make([]*BunWorker, 0, size*2),
+		taskQueue:    make(chan *WorkerTask, size*4),
+		resultQueue:  make(chan *WorkerResult, size*4),
+		minSize:      size,
+		maxSize:      size * 2,
 		runtimePath:  runtimePath,
 		workerScript: workerScript,
 		shutdownChan: make(chan struct{}),
+		scaleTicker:  time.NewTicker(10 * time.Second),
 	}
 
 	for i := 0; i < size; i++ {
@@ -77,11 +83,17 @@ func NewWorkerPool(size int, runtimePath, workerScript string) (*WorkerPool, err
 			pool.Shutdown()
 			return nil, fmt.Errorf("failed to start worker %d: %w", i, err)
 		}
+		pool.workersMu.Lock()
 		pool.workers = append(pool.workers, worker)
+		pool.workersMu.Unlock()
+		pool.currentSize.Add(1)
 	}
 
 	pool.wg.Add(1)
 	go pool.dispatcher()
+
+	pool.wg.Add(1)
+	go pool.scaler()
 
 	return pool, nil
 }
@@ -233,6 +245,9 @@ func (p *WorkerPool) executeTask(task *WorkerTask) {
 }
 
 func (p *WorkerPool) getHealthyWorker() *BunWorker {
+	p.workersMu.RLock()
+	defer p.workersMu.RUnlock()
+
 	var bestWorker *BunWorker
 	var minTasks int64 = -1
 
@@ -333,12 +348,87 @@ func (p *WorkerPool) Submit(ctx context.Context, scriptPath string, input any, t
 func (p *WorkerPool) Shutdown() {
 	p.shutdownOnce.Do(func() {
 		close(p.shutdownChan)
+		p.scaleTicker.Stop()
 		p.wg.Wait()
 
-		for _, worker := range p.workers {
+		p.workersMu.RLock()
+		workers := make([]*BunWorker, len(p.workers))
+		copy(workers, p.workers)
+		p.workersMu.RUnlock()
+
+		for _, worker := range workers {
 			worker.shutdown()
 		}
 	})
+}
+
+func (p *WorkerPool) scaler() {
+	defer p.wg.Done()
+
+	for {
+		select {
+		case <-p.scaleTicker.C:
+			queueLen := len(p.taskQueue)
+			currentSize := int(p.currentSize.Load())
+
+			if queueLen > currentSize*2 && currentSize < p.maxSize {
+				p.scaleUp()
+			} else if queueLen < currentSize/4 && currentSize > p.minSize {
+				p.scaleDown()
+			}
+		case <-p.shutdownChan:
+			return
+		}
+	}
+}
+
+func (p *WorkerPool) scaleUp() {
+	p.restartMu.Lock()
+	defer p.restartMu.Unlock()
+
+	currentSize := int(p.currentSize.Load())
+	if currentSize >= p.maxSize {
+		return
+	}
+
+	newID := currentSize
+	worker, err := p.startWorker(newID)
+	if err != nil {
+		fmt.Printf("Failed to scale up worker: %v\n", err)
+		return
+	}
+
+	p.workersMu.Lock()
+	p.workers = append(p.workers, worker)
+	p.workersMu.Unlock()
+	p.currentSize.Add(1)
+
+	fmt.Printf("Scaled up to %d workers\n", p.currentSize.Load())
+}
+
+func (p *WorkerPool) scaleDown() {
+	p.restartMu.Lock()
+	defer p.restartMu.Unlock()
+
+	currentSize := int(p.currentSize.Load())
+	if currentSize <= p.minSize {
+		return
+	}
+
+	p.workersMu.Lock()
+	if len(p.workers) == 0 {
+		p.workersMu.Unlock()
+		return
+	}
+
+	lastWorker := p.workers[len(p.workers)-1]
+	p.workers = p.workers[:len(p.workers)-1]
+	p.workersMu.Unlock()
+
+	lastWorker.shutdown()
+	p.currentSize.Add(-1)
+
+	fmt.Printf("Scaled down to %d workers\n", p.currentSize.Load())
 }
 
 func (w *BunWorker) shutdown() {
@@ -363,8 +453,13 @@ func (w *BunWorker) shutdown() {
 }
 
 func (p *WorkerPool) Stats() map[string]any {
+	p.workersMu.RLock()
+	defer p.workersMu.RUnlock()
+
 	stats := map[string]any{
-		"pool_size":      p.size,
+		"min_size":       p.minSize,
+		"max_size":       p.maxSize,
+		"current_size":   p.currentSize.Load(),
 		"active_workers": p.activeWorkers.Load(),
 		"queue_length":   len(p.taskQueue),
 		"workers":        make([]map[string]any, 0, len(p.workers)),

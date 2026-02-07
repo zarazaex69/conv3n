@@ -106,11 +106,35 @@ export class TransformBlock extends Block<TransformConfig, TransformOutput> {
     }
 
     private applyMap(data: unknown, expression: string): unknown {
+        this.validateMapExpression(expression);
+
         try {
             const mapFn = new Function("data", `'use strict'; return (${expression});`);
             return mapFn(data);
         } catch (error) {
             throw new Error(`Map expression failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    private validateMapExpression(expression: string): void {
+        const dangerousPatterns = [
+            /require\s*\(/,
+            /import\s+/,
+            /process\./,
+            /global\./,
+            /Function\s*\(/,
+            /eval\s*\(/,
+            /Bun\./,
+        ];
+
+        for (const pattern of dangerousPatterns) {
+            if (pattern.test(expression)) {
+                throw new Error(`Expression contains forbidden pattern: ${pattern.source}`);
+            }
+        }
+
+        if (expression.length > 2000) {
+            throw new Error("Expression too long (max 2000 characters)");
         }
     }
 

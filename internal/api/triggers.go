@@ -14,6 +14,7 @@ import (
 type TriggerHandler struct {
 	Store          storage.Storage
 	TriggerManager *engine.TriggerManager
+	WebhookLimiter *RateLimiter
 }
 
 // NewTriggerHandler creates a new trigger handler
@@ -21,6 +22,7 @@ func NewTriggerHandler(store storage.Storage, manager *engine.TriggerManager) *T
 	return &TriggerHandler{
 		Store:          store,
 		TriggerManager: manager,
+		WebhookLimiter: NewRateLimiter(10, 20),
 	}
 }
 
@@ -353,13 +355,12 @@ func (h *TriggerHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// Check if it's a TypeScript trigger runner and invoke it directly
 	if tsRunner, ok := triggerRunner.(*engine.TSTriggerRunner); ok {
 		if err := tsRunner.Invoke(r.Context(), payload); err != nil {
-			http.Error(w, "Failed to invoke TS webhook trigger: "+err.Error(), http.StatusInternalServerError)
+			WriteJSONError(w, http.StatusInternalServerError, "INVOKE_FAILED", err.Error())
 			return
 		}
 	} else {
-
 		if err := h.TriggerManager.Fire(r.Context(), triggerID, payload); err != nil {
-			http.Error(w, "Failed to fire Go-native webhook trigger: "+err.Error(), http.StatusInternalServerError)
+			WriteJSONError(w, http.StatusInternalServerError, "FIRE_FAILED", err.Error())
 			return
 		}
 	}

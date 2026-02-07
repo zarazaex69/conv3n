@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -220,6 +221,11 @@ func (r *CircuitBreakerRegistry) Get(key string) *CircuitBreaker {
 	cb := NewCircuitBreaker(r.cfg)
 	actual, _ := r.breakers.LoadOrStore(key, cb)
 	return actual.(*CircuitBreaker)
+}
+
+func (r *CircuitBreakerRegistry) GetForURL(nodeType NodeType, url string) *CircuitBreaker {
+	key := fmt.Sprintf("%s:%s", nodeType, url)
+	return r.Get(key)
 }
 
 func (r *CircuitBreakerRegistry) Execute(ctx context.Context, key string, fn func() (any, error)) (any, error) {

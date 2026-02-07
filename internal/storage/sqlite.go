@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite" // Pure Go SQLite driver (no CGO required)
+	"github.com/google/uuid"
+	_ "modernc.org/sqlite"
 )
 
 // ExecutionStatus represents the current state of a workflow execution
@@ -68,7 +69,6 @@ type TriggerExecution struct {
 
 // This allows tracking full execution history (like n8n)
 type Storage interface {
-
 	CreateWorkflow(ctx context.Context, workflow *Workflow) error
 	GetWorkflow(ctx context.Context, id string) (*Workflow, error)
 	UpdateWorkflow(ctx context.Context, workflow *Workflow) error
@@ -98,6 +98,12 @@ type Storage interface {
 	ListTriggerExecutions(ctx context.Context, triggerID string, limit int) ([]*TriggerExecution, error)
 
 	Close() error
+
+	CreateTask(ctx context.Context, task *Task) error
+	UpdateTask(ctx context.Context, task *Task) error
+	GetPendingTasks(ctx context.Context, limit int) ([]*Task, error)
+	CleanupOldExecutions(ctx context.Context, olderThan time.Duration) error
+	ListWorkflowsPaginated(ctx context.Context, limit, offset int) ([]*Workflow, error)
 }
 
 // SQLiteStorage implements Storage using modernc.org/sqlite (Pure Go)
@@ -204,6 +210,24 @@ func initSchema(db *sql.DB) error {
 	-- Index for querying trigger execution history
 	CREATE INDEX IF NOT EXISTS idx_trigger_executions_trigger
 		ON trigger_executions(trigger_id, fired_at DESC);
+
+	CREATE TABLE IF NOT EXISTS tasks (
+		id TEXT PRIMARY KEY,
+		trigger_id TEXT NOT NULL,
+		workflow_id TEXT NOT NULL,
+		payload BLOB,
+		status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'completed', 'failed')),
+		attempts INTEGER NOT NULL DEFAULT 0,
+		max_retries INTEGER NOT NULL DEFAULT 3,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		error TEXT,
+		FOREIGN KEY (trigger_id) REFERENCES triggers(id) ON DELETE CASCADE,
+		FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_tasks_status
+		ON tasks(status, created_at DESC);
 	`
 
 	_, err := db.Exec(schema)
@@ -309,8 +333,12 @@ func (s *SQLiteStorage) DeleteWorkflow(ctx context.Context, id string) error {
 }
 
 func (s *SQLiteStorage) ListWorkflows(ctx context.Context) ([]*Workflow, error) {
-	query := `SELECT id, name, definition, created_at, updated_at FROM workflows ORDER BY updated_at DESC`
-	rows, err := s.db.QueryContext(ctx, query)
+	return s.ListWorkflowsPaginated(ctx, 1000, 0)
+}
+
+func (s *SQLiteStorage) ListWorkflowsPaginated(ctx context.Context, limit, offset int) ([]*Workflow, error) {
+	query := `SELECT id, name, definition, created_at, updated_at FROM workflows ORDER BY updated_at DESC LIMIT ? OFFSET ?`
+	rows, err := s.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
@@ -332,9 +360,7 @@ func (s *SQLiteStorage) ListWorkflows(ctx context.Context) ([]*Workflow, error) 
 // CreateExecution creates a new workflow execution instance
 
 func (s *SQLiteStorage) CreateExecution(ctx context.Context, workflowID string) (string, error) {
-
-	// In production, consider using github.com/google/uuid
-	executionID := fmt.Sprintf("%s-%d", workflowID, time.Now().UnixNano())
+	executionID := generateExecutionID()
 
 	query := `
 		INSERT INTO workflow_executions (execution_id, workflow_id, status, state, started_at)
@@ -634,4 +660,8 @@ func (s *SQLiteStorage) ListTriggerExecutions(ctx context.Context, triggerID str
 // Close releases database resources
 func (s *SQLiteStorage) Close() error {
 	return s.db.Close()
+}
+
+func generateExecutionID() string {
+	return uuid.New().String()
 }

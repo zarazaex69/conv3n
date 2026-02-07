@@ -132,9 +132,11 @@ func (h *WorkflowHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // List handles GET /api/workflows
 func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
-	storedWfs, err := h.Store.ListWorkflows(r.Context())
+	limit, offset := PaginationParams(r)
+
+	storedWfs, err := h.Store.ListWorkflowsPaginated(r.Context(), limit, offset)
 	if err != nil {
-		http.Error(w, "Failed to list workflows: "+err.Error(), http.StatusInternalServerError)
+		WriteJSONError(w, http.StatusInternalServerError, "LIST_FAILED", err.Error())
 		return
 	}
 
@@ -155,6 +157,12 @@ func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	response := map[string]any{
+		"items":  list,
+		"limit":  limit,
+		"offset": offset,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
+	json.NewEncoder(w).Encode(response)
 }

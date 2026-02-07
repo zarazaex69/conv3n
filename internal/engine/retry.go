@@ -38,8 +38,10 @@ func RetryWithBackoff(ctx context.Context, cfg *RetryConfig, fn RetryableFunc) (
 
 	for attempt := 0; attempt < cfg.MaxAttempts; attempt++ {
 		if attempt > 0 {
+			jitter := time.Duration(float64(backoff) * (0.5 + 0.5*float64(time.Now().UnixNano()%1000)/1000.0))
+
 			select {
-			case <-time.After(backoff):
+			case <-time.After(jitter):
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}

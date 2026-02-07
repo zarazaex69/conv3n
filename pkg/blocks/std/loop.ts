@@ -52,6 +52,26 @@ export class LoopBlock extends Block<LoopConfig, LoopOutput> {
     }
 
     private validateExpression(expression: string): void {
+        const dangerousPatterns = [
+            /require\s*\(/,
+            /import\s+/,
+            /process\./,
+            /global\./,
+            /Function\s*\(/,
+            /eval\s*\(/,
+            /Bun\./,
+        ];
+
+        for (const pattern of dangerousPatterns) {
+            if (pattern.test(expression)) {
+                throw new Error(`Expression contains forbidden pattern: ${pattern.source}`);
+            }
+        }
+
+        if (expression.length > 1000) {
+            throw new Error("Expression too long (max 1000 characters)");
+        }
+
         try {
             new Function("item", `'use strict'; return (${expression});`);
         } catch (error) {

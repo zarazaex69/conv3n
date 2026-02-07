@@ -24,6 +24,7 @@ type WorkflowRunner struct {
 	metrics         *observability.Metrics
 	tracer          *observability.Tracer
 	logger          *observability.Logger
+	dataLimiter     *DataLimiter
 }
 
 func NewWorkflowRunner(
@@ -49,10 +50,19 @@ func NewWorkflowRunner(
 		metrics:         observability.GetMetrics(),
 		tracer:          observability.GetTracer(),
 		logger:          observability.GetLogger(),
+		dataLimiter:     NewDataLimiter(),
 	}
 }
 
 func (wr *WorkflowRunner) Run(ctx context.Context, workflow Workflow) error {
+	workflowTimeout := 5 * time.Minute
+	if workflow.Config != nil && workflow.Config.MaxConcurrentNodes > 0 {
+		workflowTimeout = time.Duration(workflow.Config.MaxConcurrentNodes) * time.Minute
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, workflowTimeout)
+	defer cancel()
+
 	span, ctx := wr.tracer.StartSpan(ctx, "workflow.execute")
 	defer span.End()
 
@@ -283,6 +293,10 @@ func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph
 	var rawResult any
 
 	cbKey := fmt.Sprintf("node:%s", node.Type)
+	if url, ok := resolvedConfig["url"].(string); ok && node.Type == NodeTypeHTTPRequest {
+		cbKey = fmt.Sprintf("%s:%s", node.Type, url)
+	}
+
 	rawResult, err = RetryWithBackoff(ctx, wr.retryConfig, func(ctx context.Context) (any, error) {
 		result, err := wr.circuitBreakers.Execute(ctx, cbKey, func() (any, error) {
 			return wr.executeNodeWithWorkerPool(ctx, node, input)
@@ -306,6 +320,12 @@ func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph
 	}
 
 	result := parseNodeResult(rawResult)
+
+	if err := wr.dataLimiter.ValidateNodeResult(result.Data); err != nil {
+		span.SetStatus(observability.StatusCodeError, err.Error())
+		logger.Error("node result too large", slog.Any("error", err))
+		return NewNodeExecutionError(node.ID, node.Type, err)
+	}
 
 	wr.stateManager.SetResult(node.ID, result.Data)
 
@@ -357,7 +377,9 @@ func (wr *WorkflowRunner) executeVariableNode(node *Node, input any) (any, error
 	if node.Type == NodeTypeSetVar {
 		name, _ := config["name"].(string)
 		value := config["value"]
-		wr.stateManager.ctx.SetVar(name, value)
+		if err := wr.stateManager.ctx.SetVar(name, value); err != nil {
+			return nil, fmt.Errorf("failed to set variable: %w", err)
+		}
 		return map[string]any{"data": map[string]any{"name": name, "value": value}}, nil
 	}
 

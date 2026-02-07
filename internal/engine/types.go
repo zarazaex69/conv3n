@@ -178,9 +178,9 @@ func (ctx *ExecutionContext) GetResult(nodeID string) interface{} {
 }
 
 // SetVar sets a user-defined variable.
-func (ctx *ExecutionContext) SetVar(name string, value interface{}) {
+func (ctx *ExecutionContext) SetVar(name string, value interface{}) error {
 	ctx.Variables[name] = value
-	ctx.VariableStore.Set(ctx.WorkflowID, ctx.ExecutionID, name, value, ScopeExecution, nil)
+	return ctx.VariableStore.Set(ctx.WorkflowID, ctx.ExecutionID, name, value, ScopeExecution, nil)
 }
 
 func (ctx *ExecutionContext) GetVar(name string) interface{} {

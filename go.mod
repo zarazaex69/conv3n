@@ -3,6 +3,7 @@ module github.com/zarazaex69/conv3n
 go 1.25
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/robfig/cron/v3 v3.0.1
 	modernc.org/sqlite v1.40.1
 )

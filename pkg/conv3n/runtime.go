@@ -27,6 +27,8 @@ type Runtime struct {
 	metrics         *observability.Metrics
 	tracer          *observability.Tracer
 	logger          *observability.Logger
+	cleanupJob      *engine.CleanupJob
+	alertManager    *observability.AlertManager
 	mu              sync.RWMutex
 	running         bool
 }
@@ -42,6 +44,9 @@ type Config struct {
 	LogLevel        slog.Level
 	HealthCheckTTL  time.Duration
 	ShutdownTimeout time.Duration
+	CleanupInterval time.Duration
+	RetentionPeriod time.Duration
+	AlertWebhookURL string
 }
 
 func DefaultConfig() *Config {
@@ -55,6 +60,9 @@ func DefaultConfig() *Config {
 		LogLevel:        slog.LevelInfo,
 		HealthCheckTTL:  5 * time.Second,
 		ShutdownTimeout: 30 * time.Second,
+		CleanupInterval: 24 * time.Hour,
+		RetentionPeriod: 30 * 24 * time.Hour,
+		AlertWebhookURL: "",
 	}
 }
 
@@ -91,6 +99,8 @@ func New(cfg *Config) (*Runtime, error) {
 	registry := engine.NewExecutionRegistry()
 	healthChecker := engine.NewHealthChecker(cfg.HealthCheckTTL)
 	shutdownManager := engine.NewShutdownManager(logger.Logger)
+	cleanupJob := engine.NewCleanupJob(store, cfg.CleanupInterval, cfg.RetentionPeriod)
+	alertManager := observability.NewAlertManager(cfg.AlertWebhookURL)
 
 	healthChecker.Register("worker_pool", engine.WorkerPoolHealthCheck(workerPool))
 
@@ -106,6 +116,8 @@ func New(cfg *Config) (*Runtime, error) {
 		metrics:         observability.GetMetrics(),
 		tracer:          observability.GetTracer(),
 		logger:          logger,
+		cleanupJob:      cleanupJob,
+		alertManager:    alertManager,
 		running:         false,
 	}
 
@@ -122,6 +134,19 @@ func (r *Runtime) registerShutdownHooks() {
 		Fn: func(ctx context.Context) error {
 			r.logger.Info("cancelling active executions")
 			r.registry.CancelAll()
+			return nil
+		},
+	})
+
+	r.shutdownManager.Register(engine.ShutdownHook{
+		Name:     "cleanup_job",
+		Priority: 95,
+		Timeout:  5 * time.Second,
+		Fn: func(ctx context.Context) error {
+			r.logger.Info("stopping cleanup job")
+			if r.cleanupJob != nil {
+				r.cleanupJob.Stop()
+			}
 			return nil
 		},
 	})
@@ -163,6 +188,10 @@ func (r *Runtime) Start(ctx context.Context) error {
 
 	r.running = true
 	r.metrics.Gauge("runtime.status", nil).Set(1)
+
+	if r.cleanupJob != nil {
+		go r.cleanupJob.Start(ctx)
+	}
 
 	r.logger.Info("runtime started successfully")
 	return nil

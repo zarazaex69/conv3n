@@ -1,30 +1,27 @@
 
-// Standard Block: Conditional Branching
-
 import { Block, BlockHelpers } from "../../bunock/sdk/sdk.ts";
 
-// Type definitions for input/output
 export interface ConditionConfig {
-    expression: string;      // JavaScript expression to evaluate (e.g., "input.value > 100")
+    expression: string;
 }
 
 export interface ConditionOutput {
-    result: boolean;         // Evaluation result
-    expression: string;      // Original expression for debugging
+    result: boolean;
+    expression: string;
 }
 
-// Safely evaluate JavaScript expression
-
 export function evaluateExpression(expression: string, context: unknown): boolean {
-    try {
+    validateExpressionSafety(expression);
 
-        // The expression has access to 'input' variable containing the context
+    try {
+        const safeContext = sanitizeContext(context);
+
         const evalFunction = new Function("input", `
             'use strict';
             return Boolean(${expression});
         `);
 
-        const result = evalFunction(context);
+        const result = evalFunction(safeContext);
         return Boolean(result);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -32,10 +29,10 @@ export function evaluateExpression(expression: string, context: unknown): boolea
     }
 }
 
-// Validate expression syntax without executing
 export function validateExpression(expression: string): void {
-    try {
+    validateExpressionSafety(expression);
 
+    try {
         new Function("input", `'use strict'; return Boolean(${expression});`);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -43,23 +40,61 @@ export function validateExpression(expression: string): void {
     }
 }
 
-/**
- * Condition Block - evaluates JavaScript expressions for workflow branching
- */
+function validateExpressionSafety(expression: string): void {
+    const dangerousPatterns = [
+        /require\s*\(/,
+        /import\s+/,
+        /process\./,
+        /global\./,
+        /Function\s*\(/,
+        /eval\s*\(/,
+        /setTimeout\s*\(/,
+        /setInterval\s*\(/,
+        /__dirname/,
+        /__filename/,
+        /Bun\./,
+    ];
+
+    for (const pattern of dangerousPatterns) {
+        if (pattern.test(expression)) {
+            throw new Error(`Expression contains forbidden pattern: ${pattern.source}`);
+        }
+    }
+
+    if (expression.length > 1000) {
+        throw new Error("Expression too long (max 1000 characters)");
+    }
+}
+
+function sanitizeContext(context: unknown): unknown {
+    if (typeof context !== "object" || context === null) {
+        return context;
+    }
+
+    const sanitized: Record<string, unknown> = {};
+    const obj = context as Record<string, unknown>;
+
+    for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === "function") {
+            continue;
+        }
+        sanitized[key] = value;
+    }
+
+    return sanitized;
+}
+
 export class ConditionBlock extends Block<ConditionConfig, ConditionOutput> {
     validate(config: unknown): asserts config is ConditionConfig {
         BlockHelpers.assertObject(config);
         BlockHelpers.assertNonEmptyString(config, "expression");
 
-        // Validate expression syntax
         validateExpression((config as any).expression);
     }
 
     async execute(config: ConditionConfig, input?: unknown): Promise<ConditionOutput> {
-
         const context = input ?? {};
 
-        // Evaluate expression
         const result = evaluateExpression(config.expression, context);
 
         return {
@@ -68,13 +103,11 @@ export class ConditionBlock extends Block<ConditionConfig, ConditionOutput> {
         };
     }
 
-    // Route based on boolean result
     protected getOutputPort(result: ConditionOutput): string {
         return BlockHelpers.getBooleanPort(result.result);
     }
 }
 
-// Only run if this is the entry point
 if (import.meta.main) {
     new ConditionBlock().run();
 }

@@ -11,12 +11,22 @@ type DatabaseOperation =
 interface DatabaseConfig {
     database: string;
     operation: DatabaseOperation;
+    allowUnsafeSQL?: boolean;
 }
 
 type DatabaseOutput =
     | { operation: "query"; rows: unknown[]; rowCount: number }
     | { operation: "execute"; changes: number; lastInsertRowid: number }
     | { operation: "transaction"; statementsExecuted: number; changes: number };
+
+const DANGEROUS_SQL_PATTERNS = [
+    /;\s*DROP\s+/i,
+    /;\s*DELETE\s+FROM\s+/i,
+    /;\s*TRUNCATE\s+/i,
+    /;\s*ALTER\s+/i,
+    /EXEC\s*\(/i,
+    /EXECUTE\s*\(/i,
+];
 
 export class DatabaseBlock extends Block<DatabaseConfig, DatabaseOutput> {
     private db: Database | null = null;
@@ -36,6 +46,12 @@ export class DatabaseBlock extends Block<DatabaseConfig, DatabaseOutput> {
 
         if (op.type === "query" || op.type === "execute") {
             BlockHelpers.assertNonEmptyString(op, "sql");
+            
+            const allowUnsafe = (config as any).allowUnsafeSQL === true;
+            if (!allowUnsafe) {
+                this.validateSQL(op.sql as string);
+            }
+
             if ("params" in op && op.params !== undefined) {
                 BlockHelpers.assertField(op, "params", "array");
             }
@@ -47,13 +63,32 @@ export class DatabaseBlock extends Block<DatabaseConfig, DatabaseOutput> {
             if (statements.length === 0) {
                 throw new Error("Transaction must have at least one statement");
             }
+
+            const allowUnsafe = (config as any).allowUnsafeSQL === true;
             for (const stmt of statements) {
                 BlockHelpers.assertObject(stmt, "statement");
                 BlockHelpers.assertNonEmptyString(stmt, "sql");
+                
+                if (!allowUnsafe) {
+                    this.validateSQL(stmt.sql as string);
+                }
+
                 if ("params" in stmt && stmt.params !== undefined) {
                     BlockHelpers.assertField(stmt, "params", "array");
                 }
             }
+        }
+    }
+
+    private validateSQL(sql: string): void {
+        for (const pattern of DANGEROUS_SQL_PATTERNS) {
+            if (pattern.test(sql)) {
+                throw new Error(`SQL contains potentially dangerous pattern: ${pattern.source}. Use allowUnsafeSQL: true to bypass.`);
+            }
+        }
+
+        if (sql.includes("--") || sql.includes("/*")) {
+            throw new Error("SQL comments are not allowed for security reasons");
         }
     }
 

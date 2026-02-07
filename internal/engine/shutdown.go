@@ -45,10 +45,14 @@ func (sm *ShutdownManager) Register(hook ShutdownHook) {
 }
 
 func (sm *ShutdownManager) Shutdown(ctx context.Context) error {
+	return sm.ShutdownWithWait(ctx, false)
+}
+
+func (sm *ShutdownManager) ShutdownWithWait(ctx context.Context, waitForCompletion bool) error {
 	var shutdownErr error
 
 	sm.shutdownOnce.Do(func() {
-		sm.logger.Info("graceful shutdown initiated")
+		sm.logger.Info("graceful shutdown initiated", slog.Bool("wait_for_completion", waitForCompletion))
 
 		sm.mu.RLock()
 		hooks := make([]ShutdownHook, len(sm.hooks))

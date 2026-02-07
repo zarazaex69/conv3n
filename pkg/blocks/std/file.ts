@@ -9,6 +9,7 @@ type FileOperation =
 interface FileConfig {
     path: string;
     operation: FileOperation;
+    allowedPaths?: string[];
 }
 
 type FileOutput =
@@ -17,11 +18,25 @@ type FileOutput =
     | { operation: "delete"; path: string; deleted: boolean }
     | { operation: "exists"; path: string; exists: boolean };
 
+const FORBIDDEN_PATHS = [
+    "/etc/passwd",
+    "/etc/shadow",
+    "/etc/hosts",
+    "~/.ssh",
+    "~/.aws",
+    "/proc",
+    "/sys",
+];
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
 export class FileBlock extends Block<FileConfig, FileOutput> {
     validate(config: unknown): asserts config is FileConfig {
         BlockHelpers.assertObject(config);
         BlockHelpers.assertNonEmptyString(config, "path");
         BlockHelpers.assertField(config, "operation", "object");
+
+        this.validatePath(config.path as string, config.allowedPaths as string[] | undefined);
 
         const op = config.operation as Record<string, unknown>;
         BlockHelpers.assertField(op, "type", "string");
@@ -46,6 +61,8 @@ export class FileBlock extends Block<FileConfig, FileOutput> {
     async execute(config: FileConfig): Promise<FileOutput> {
         const { path, operation } = config;
 
+        this.validatePath(path, config.allowedPaths);
+
         switch (operation.type) {
             case "read":
                 return await this.executeRead(path, operation.format || "text");
@@ -60,6 +77,35 @@ export class FileBlock extends Block<FileConfig, FileOutput> {
         }
     }
 
+    private validatePath(path: string, allowedPaths?: string[]): void {
+        const normalizedPath = this.normalizePath(path);
+
+        for (const forbidden of FORBIDDEN_PATHS) {
+            if (normalizedPath.startsWith(forbidden) || normalizedPath.includes(forbidden)) {
+                throw new Error(`Access to path '${path}' is forbidden`);
+            }
+        }
+
+        if (normalizedPath.includes("..")) {
+            throw new Error("Path traversal detected: '..' is not allowed");
+        }
+
+        if (allowedPaths && allowedPaths.length > 0) {
+            const isAllowed = allowedPaths.some(allowed => {
+                const normalizedAllowed = this.normalizePath(allowed);
+                return normalizedPath.startsWith(normalizedAllowed);
+            });
+
+            if (!isAllowed) {
+                throw new Error(`Path '${path}' is not in allowed paths list`);
+            }
+        }
+    }
+
+    private normalizePath(path: string): string {
+        return path.replace(/\\/g, "/").replace(/\/+/g, "/");
+    }
+
     private async executeRead(path: string, format: "text" | "json" | "bytes"): Promise<FileOutput> {
         const file = Bun.file(path);
 
@@ -69,6 +115,10 @@ export class FileBlock extends Block<FileConfig, FileOutput> {
         }
 
         const size = file.size;
+
+        if (size > MAX_FILE_SIZE) {
+            throw new Error(`File size ${size} exceeds maximum allowed ${MAX_FILE_SIZE} bytes`);
+        }
 
         try {
             let data: string | object | Uint8Array;

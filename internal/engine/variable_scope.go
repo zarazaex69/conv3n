@@ -80,7 +80,12 @@ func NewVariableStore() *VariableStore {
 	return store
 }
 
-func (vs *VariableStore) Set(workflowID, executionID, name string, value any, scope VariableScope, ttl *time.Duration) {
+func (vs *VariableStore) Set(workflowID, executionID, name string, value any, scope VariableScope, ttl *time.Duration) error {
+	limiter := NewDataLimiter()
+	if err := limiter.ValidateVariable(value); err != nil {
+		return err
+	}
+
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -125,6 +130,8 @@ func (vs *VariableStore) Set(workflowID, executionID, name string, value any, sc
 		})
 		vs.expiryMu.Unlock()
 	}
+
+	return nil
 }
 
 func (vs *VariableStore) Get(workflowID, executionID, name string) (any, bool) {
