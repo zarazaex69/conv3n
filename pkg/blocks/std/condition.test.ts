@@ -175,14 +175,14 @@ describe("Condition Block", () => {
         test("should route to 'true' port", () => {
             const block = new ConditionBlock();
 
-            const port = block.getOutputPort({ result: true, expression: "" });
+            const port = (block as any).getOutputPort({ result: true, expression: "" });
             expect(port).toBe("true");
         });
 
         test("should route to 'false' port", () => {
             const block = new ConditionBlock();
 
-            const port = block.getOutputPort({ result: false, expression: "" });
+            const port = (block as any).getOutputPort({ result: false, expression: "" });
             expect(port).toBe("false");
         });
     });

@@ -25,7 +25,7 @@ describe("CounterBlock", () => {
         proc.stdin.write(JSON.stringify(input));
         proc.stdin.end();
 
-        const output = await new Response(proc.stdout).json();
+        const output = await new Response(proc.stdout).json() as any;
 
         expect(output.data.currentValue).toBe(15);
         expect(output.data.previousValue).toBe(10);
@@ -51,7 +51,7 @@ describe("CounterBlock", () => {
         proc.stdin.write(JSON.stringify(input));
         proc.stdin.end();
 
-        const output = await new Response(proc.stdout).json();
+        const output = await new Response(proc.stdout).json() as any;
 
         expect(output.data.currentValue).toBe(1);
         expect(output.data.previousValue).toBe(0);
@@ -75,7 +75,7 @@ describe("CounterBlock", () => {
         proc.stdin.write(JSON.stringify(input));
         proc.stdin.end();
 
-        const output = await new Response(proc.stdout).json();
+        const output = await new Response(proc.stdout).json() as any;
 
         expect(output.variables[0].options.scope).toBe("global");
         expect(output.variables[0].options.ttlSeconds).toBe(60);

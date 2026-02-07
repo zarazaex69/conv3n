@@ -140,7 +140,7 @@ export class TransformBlock extends Block<TransformConfig, TransformOutput> {
 
     private applyJSONPath(data: unknown, queryString: string): unknown {
         try {
-            const result = jsonpathQuery(data, queryString);
+            const result = jsonpathQuery(data as any, queryString);
 
             if (Array.isArray(result) && result.length === 1) {
                 return result[0];

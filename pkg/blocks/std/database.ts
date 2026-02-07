@@ -127,7 +127,7 @@ export class DatabaseBlock extends Block<DatabaseConfig, DatabaseOutput> {
 
         try {
             const stmt = this.db.query(sql);
-            const rows = params ? stmt.all(...params) : stmt.all();
+            const rows = params ? stmt.all(...(params as any[])) : stmt.all();
 
             if (rows.length > MAX_RESULT_ROWS) {
                 throw new Error(`Query returned ${rows.length} rows, exceeding maximum allowed (${MAX_RESULT_ROWS})`);
@@ -147,7 +147,7 @@ export class DatabaseBlock extends Block<DatabaseConfig, DatabaseOutput> {
 
         try {
             const stmt = this.db.query(sql);
-            const result = params ? stmt.run(...params) : stmt.run();
+            const result = params ? stmt.run(...(params as any[])) : stmt.run();
 
             return {
                 operation: "execute",

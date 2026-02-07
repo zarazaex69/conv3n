@@ -41,7 +41,7 @@ describe("Transform Block", () => {
             const block = new TransformBlock();
             const config = {
                 input: { a: 1, b: 2, c: 3 },
-                operations: [{ type: "pick", fields: ["a", "c"] }],
+                operations: [{ type: "pick" as const, fields: ["a", "c"] }],
             };
             const result = await block.execute(config);
             expect(result.data).toEqual({ a: 1, c: 3 });
@@ -52,7 +52,7 @@ describe("Transform Block", () => {
             const block = new TransformBlock();
             const config = {
                 input: { oldName: "value", other: "data" },
-                operations: [{ type: "rename", mapping: { oldName: "newName" } }],
+                operations: [{ type: "rename" as const, mapping: { oldName: "newName" } }],
             };
             const result = await block.execute(config);
             expect(result.data).toEqual({ newName: "value", other: "data" });
@@ -62,7 +62,7 @@ describe("Transform Block", () => {
             const block = new TransformBlock();
             const config = {
                 input: { value: 10 },
-                operations: [{ type: "map", expression: "({ ...data, doubled: data.value * 2 })" }],
+                operations: [{ type: "map" as const, expression: "({ ...data, doubled: data.value * 2 })" }],
             };
             const result = await block.execute(config);
             expect(result.data).toEqual({ value: 10, doubled: 20 });
@@ -72,7 +72,7 @@ describe("Transform Block", () => {
             const block = new TransformBlock();
             const config = {
                 input: { users: [{ name: "Alice" }, { name: "Bob" }] },
-                operations: [{ type: "jsonpath", query: "$.users[0].name" }],
+                operations: [{ type: "jsonpath" as const, query: "$.users[0].name" }],
             };
             const result = await block.execute(config);
             expect(result.data).toBe("Alice");
@@ -85,9 +85,9 @@ describe("Transform Block", () => {
                     user: { firstName: "John", lastName: "Doe", age: 30, email: "john@example.com" },
                 },
                 operations: [
-                    { type: "jsonpath", query: "$.user" },
-                    { type: "pick", fields: ["firstName", "lastName"] },
-                    { type: "rename", mapping: { firstName: "first", lastName: "last" } },
+                    { type: "jsonpath" as const, query: "$.user" },
+                    { type: "pick" as const, fields: ["firstName", "lastName"] },
+                    { type: "rename" as const, mapping: { firstName: "first", lastName: "last" } },
                 ],
             };
             const result = await block.execute(config);
