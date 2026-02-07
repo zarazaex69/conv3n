@@ -20,10 +20,11 @@ import (
 var Version = "dev"
 
 type Server struct {
-	BlocksDir  string
-	Store      storage.Storage
-	Registry   *engine.ExecutionRegistry
-	WorkerPool *engine.WorkerPool
+	BlocksDir     string
+	Store         storage.Storage
+	Registry      *engine.ExecutionRegistry
+	BlockRegistry *engine.BlockRegistry
+	WorkerPool    *engine.WorkerPool
 }
 
 func main() {
@@ -42,12 +43,12 @@ func main() {
 	fmt.Println("Starting Conv3n Reference Server...")
 	fmt.Printf("Version: %s\n", Version)
 
-	bunRunner := engine.NewBunRunner(blocksDir)
-	if err := bunRunner.LoadBlocks(); err != nil {
+	blockRegistry := engine.NewBlockRegistry(blocksDir)
+	if err := blockRegistry.LoadFromDirectory(blocksDir); err != nil {
 		log.Printf("Warning: failed to load block manifests: %v", err)
 	} else {
-		manifests := bunRunner.Registry.List()
-		fmt.Printf("Loaded %d custom blocks\n", len(manifests))
+		manifests := blockRegistry.List()
+		fmt.Printf("Loaded %d blocks\n", len(manifests))
 	}
 
 	registry := engine.NewExecutionRegistry()
@@ -58,17 +59,18 @@ func main() {
 	}
 	defer workerPool.Shutdown()
 
-	triggerManager := engine.NewTriggerManager(store, workerPool, registry)
+	triggerManager := engine.NewTriggerManager(store, workerPool, registry, blockRegistry)
 	if err := triggerManager.LoadTriggers(context.Background()); err != nil {
 		log.Printf("Warning: failed to load triggers: %v", err)
 	}
 	defer triggerManager.StopAll()
 
 	server := &Server{
-		BlocksDir:  blocksDir,
-		Store:      store,
-		Registry:   registry,
-		WorkerPool: workerPool,
+		BlocksDir:     blocksDir,
+		Store:         store,
+		Registry:      registry,
+		BlockRegistry: blockRegistry,
+		WorkerPool:    workerPool,
 	}
 
 	mux := http.NewServeMux()
@@ -96,7 +98,7 @@ func main() {
 	mux.HandleFunc("GET /api/executions/{id}", execHandler.Get)
 	mux.HandleFunc("GET /api/executions/{id}/nodes/{nodeId}", execHandler.GetNodeResult)
 
-	lifecycleHandler := api.NewLifecycleHandler(store, registry, workerPool)
+	lifecycleHandler := api.NewLifecycleHandler(store, registry, workerPool, blockRegistry)
 	mux.HandleFunc("POST /api/executions/{id}/stop", lifecycleHandler.StopExecution)
 	mux.HandleFunc("POST /api/executions/{id}/restart", lifecycleHandler.RestartExecution)
 	mux.HandleFunc("POST /api/executions/batch/stop", lifecycleHandler.BatchStopExecutions)
@@ -163,7 +165,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := engine.NewExecutionContext(req.Workflow.ID)
-	runner := engine.NewWorkflowRunner(ctx, s.WorkerPool, s.Store, s.Registry)
+	runner := engine.NewWorkflowRunner(ctx, s.WorkerPool, s.Store, s.Registry, s.BlockRegistry)
 
 	fmt.Printf("New Job: %s\n", req.Workflow.Name)
 

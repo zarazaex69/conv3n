@@ -17,6 +17,8 @@ type WorkflowRunner struct {
 	stateManager    *StateManager
 	storage         storage.Storage
 	registry        *ExecutionRegistry
+	blockRegistry   *BlockRegistry
+	rateLimiter     *RateLimiter
 	retryConfig     *RetryConfig
 	circuitBreakers *CircuitBreakerRegistry
 	metrics         *observability.Metrics
@@ -29,12 +31,19 @@ func NewWorkflowRunner(
 	workerPool *WorkerPool,
 	store storage.Storage,
 	registry *ExecutionRegistry,
+	blockRegistry *BlockRegistry,
 ) *WorkflowRunner {
+	limiter := NewRateLimiter()
+	limiter.SetLimit(NodeTypeHTTPRequest, 100, 1*time.Second)
+	limiter.SetLimit(NodeTypeDatabase, 50, 1*time.Second)
+
 	return &WorkflowRunner{
 		workerPool:      workerPool,
 		stateManager:    NewStateManager(ctx),
 		storage:         store,
 		registry:        registry,
+		blockRegistry:   blockRegistry,
+		rateLimiter:     limiter,
 		retryConfig:     DefaultRetryConfig(),
 		circuitBreakers: NewCircuitBreakerRegistry(DefaultCircuitBreakerConfig()),
 		metrics:         observability.GetMetrics(),
@@ -256,10 +265,15 @@ func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph
 		}).ObserveDuration(nodeStartTime)
 	}()
 
+	if err := wr.rateLimiter.Wait(ctx, node.Type); err != nil {
+		span.SetStatus(observability.StatusCodeError, err.Error())
+		return NewNodeExecutionError(node.ID, node.Type, ErrRateLimitExceeded)
+	}
+
 	resolvedConfig, err := ResolveVariables(node.Config, wr.stateManager.ctx)
 	if err != nil {
 		span.SetStatus(observability.StatusCodeError, err.Error())
-		return fmt.Errorf("variable resolution failed for %s: %w", node.ID, err)
+		return NewNodeExecutionError(node.ID, node.Type, fmt.Errorf("variable resolution failed: %w", err))
 	}
 
 	input := map[string]any{
@@ -288,7 +302,7 @@ func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph
 
 		wr.stateManager.ctx.SetError(node.ID, err.Error(), "execution_error")
 
-		return fmt.Errorf("node %s execution failed: %w", node.ID, err)
+		return NewNodeExecutionError(node.ID, node.Type, err)
 	}
 
 	result := parseNodeResult(rawResult)
@@ -321,12 +335,12 @@ func (wr *WorkflowRunner) executeNodeWithWorkerPool(ctx context.Context, node *N
 		return wr.executeVariableNode(node, input)
 	}
 
-	scriptPath := wr.getScriptPath(node.Type)
-	if scriptPath == "" {
-		return nil, fmt.Errorf("unknown node type: %s", node.Type)
+	manifest, ok := wr.blockRegistry.Get(node.Type)
+	if !ok {
+		return nil, ErrInvalidNodeType
 	}
 
-	return wr.workerPool.Submit(ctx, scriptPath, input, 30*time.Second)
+	return wr.workerPool.Submit(ctx, manifest.ScriptPath, input, 30*time.Second)
 }
 
 func (wr *WorkflowRunner) executeVariableNode(node *Node, input any) (any, error) {
@@ -354,13 +368,4 @@ func (wr *WorkflowRunner) executeVariableNode(node *Node, input any) (any, error
 	}
 
 	return nil, fmt.Errorf("unsupported variable node type")
-}
-
-func (wr *WorkflowRunner) getScriptPath(nodeType NodeType) string {
-	registry := NewBlockRegistry("pkg/blocks")
-	manifest, ok := registry.Get(nodeType)
-	if ok {
-		return manifest.ScriptPath
-	}
-	return ""
 }

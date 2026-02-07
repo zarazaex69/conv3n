@@ -19,6 +19,8 @@ type Runtime struct {
 	config          *Config
 	storage         storage.Storage
 	registry        *engine.ExecutionRegistry
+	blockRegistry   *engine.BlockRegistry
+	validator       *engine.WorkflowValidator
 	workerPool      *engine.WorkerPool
 	healthChecker   *engine.HealthChecker
 	shutdownManager *engine.ShutdownManager
@@ -69,6 +71,13 @@ func New(cfg *Config) (*Runtime, error) {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
+	blockRegistry := engine.NewBlockRegistry(cfg.BlocksDir)
+	if err := blockRegistry.LoadFromDirectory(cfg.BlocksDir); err != nil {
+		logger.Warn("failed to load block manifests", slog.Any("error", err))
+	}
+
+	validator := engine.NewWorkflowValidator(blockRegistry)
+
 	workerPool, err := engine.NewWorkerPool(
 		cfg.WorkerPoolSize,
 		cfg.BunRuntimePath,
@@ -89,6 +98,8 @@ func New(cfg *Config) (*Runtime, error) {
 		config:          cfg,
 		storage:         store,
 		registry:        registry,
+		blockRegistry:   blockRegistry,
+		validator:       validator,
 		workerPool:      workerPool,
 		healthChecker:   healthChecker,
 		shutdownManager: shutdownManager,
@@ -194,12 +205,17 @@ func (r *Runtime) Execute(ctx context.Context, wf *Workflow, input map[string]an
 
 	engineWf := wf.toEngine()
 
+	if err := r.validator.Validate(engineWf); err != nil {
+		span.SetStatus(observability.StatusCodeError, err.Error())
+		return nil, fmt.Errorf("workflow validation failed: %w", err)
+	}
+
 	execCtx := engine.NewExecutionContext(engineWf.ID)
 	if input != nil {
 		execCtx.TriggerData = input
 	}
 
-	runner := engine.NewWorkflowRunner(execCtx, r.workerPool, r.storage, r.registry)
+	runner := engine.NewWorkflowRunner(execCtx, r.workerPool, r.storage, r.registry, r.blockRegistry)
 
 	execID := execCtx.ExecutionID
 	if execID == "" {

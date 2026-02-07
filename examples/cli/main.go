@@ -41,9 +41,12 @@ func main() {
 	fmt.Println("Starting conv3n Engine...")
 	fmt.Printf("Using Blocks Directory: %s\n", blocksDir)
 
-	bunRunner := engine.NewBunRunner(blocksDir)
-	if err := bunRunner.LoadBlocks(); err != nil {
+	blockRegistry := engine.NewBlockRegistry(blocksDir)
+	if err := blockRegistry.LoadFromDirectory(blocksDir); err != nil {
 		log.Printf("Warning: failed to load block manifests: %v", err)
+	} else {
+		manifests := blockRegistry.List()
+		fmt.Printf("Loaded %d blocks\n", len(manifests))
 	}
 
 	store, err := storage.NewSQLite("conv3n.db")
@@ -58,8 +61,9 @@ func main() {
 	}
 	defer workerPool.Shutdown()
 
+	registry := engine.NewExecutionRegistry()
 	ctx := engine.NewExecutionContext(workflow.ID)
-	runner := engine.NewWorkflowRunner(ctx, workerPool, store, nil)
+	runner := engine.NewWorkflowRunner(ctx, workerPool, store, registry, blockRegistry)
 
 	fmt.Printf("Running Workflow: %s\n", workflow.Name)
 

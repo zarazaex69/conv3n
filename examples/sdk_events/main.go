@@ -100,8 +100,14 @@ func main() {
 	}
 	defer workerPool.Shutdown()
 
+	blockRegistry := engine.NewBlockRegistry("pkg/blocks")
+	if err := blockRegistry.LoadFromDirectory("pkg/blocks"); err != nil {
+		log.Printf("Warning: failed to load block manifests: %v", err)
+	}
+
+	registry := engine.NewExecutionRegistry()
 	execCtx := engine.NewExecutionContext(workflow.ID)
-	runner := engine.NewWorkflowRunner(execCtx, workerPool, store, nil)
+	runner := engine.NewWorkflowRunner(execCtx, workerPool, store, registry, blockRegistry)
 
 	fmt.Println("Starting workflow execution...")
 	fmt.Println()

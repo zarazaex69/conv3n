@@ -56,20 +56,22 @@ type ManagerForRunner interface {
 
 // TriggerManager manages all active triggers
 type TriggerManager struct {
-	Store      storage.Storage
-	workerPool *WorkerPool
-	registry   *ExecutionRegistry
-	triggers   map[string]TriggerRunner
-	mu         sync.RWMutex
+	Store         storage.Storage
+	workerPool    *WorkerPool
+	registry      *ExecutionRegistry
+	blockRegistry *BlockRegistry
+	triggers      map[string]TriggerRunner
+	mu            sync.RWMutex
 }
 
 // NewTriggerManager creates a new trigger manager
-func NewTriggerManager(store storage.Storage, workerPool *WorkerPool, registry *ExecutionRegistry) *TriggerManager {
+func NewTriggerManager(store storage.Storage, workerPool *WorkerPool, registry *ExecutionRegistry, blockRegistry *BlockRegistry) *TriggerManager {
 	return &TriggerManager{
-		Store:      store,
-		workerPool: workerPool,
-		registry:   registry,
-		triggers:   make(map[string]TriggerRunner),
+		Store:         store,
+		workerPool:    workerPool,
+		registry:      registry,
+		blockRegistry: blockRegistry,
+		triggers:      make(map[string]TriggerRunner),
 	}
 }
 
@@ -586,7 +588,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			execCtx.TriggerData = payload
 		}
 
-		runner := NewWorkflowRunner(execCtx, tm.workerPool, tm.Store, tm.registry)
+		runner := NewWorkflowRunner(execCtx, tm.workerPool, tm.Store, tm.registry, tm.blockRegistry)
 
 		execContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
