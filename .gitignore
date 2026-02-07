@@ -72,3 +72,4 @@ temp/
 test_workflow.json
 test_*.json
 *_test_workflow.json
+.qoder/rules/global.md
