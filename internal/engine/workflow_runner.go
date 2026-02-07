@@ -153,9 +153,14 @@ func (wr *WorkflowRunner) executeGraph(ctx context.Context, graph *executionGrap
 		return fmt.Errorf("no executable nodes found")
 	}
 
+	concurrency := 10
+	if workflow.Config != nil && workflow.Config.MaxConcurrentNodes > 0 {
+		concurrency = workflow.Config.MaxConcurrentNodes
+	}
+
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(graph.nodes))
-	semaphore := make(chan struct{}, 10)
+	semaphore := make(chan struct{}, concurrency)
 
 	for len(readyNodes) > 0 {
 		for _, nodeID := range readyNodes {

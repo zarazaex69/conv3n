@@ -8,10 +8,15 @@ import (
 )
 
 type Workflow struct {
-	ID    string
-	Name  string
-	Nodes map[string]*Node
-	Edges []*Edge
+	ID     string
+	Name   string
+	Nodes  map[string]*Node
+	Edges  []*Edge
+	Config *WorkflowConfig
+}
+
+type WorkflowConfig struct {
+	MaxConcurrentNodes int
 }
 
 type Node struct {
@@ -37,10 +42,11 @@ type Position struct {
 
 func NewWorkflow(id, name string) *Workflow {
 	return &Workflow{
-		ID:    id,
-		Name:  name,
-		Nodes: make(map[string]*Node),
-		Edges: make([]*Edge, 0),
+		ID:     id,
+		Name:   name,
+		Nodes:  make(map[string]*Node),
+		Edges:  make([]*Edge, 0),
+		Config: &WorkflowConfig{},
 	}
 }
 
@@ -75,11 +81,19 @@ func (w *Workflow) toEngine() *engine.Workflow {
 		}
 	}
 
+	var config *engine.WorkflowConfig
+	if w.Config != nil {
+		config = &engine.WorkflowConfig{
+			MaxConcurrentNodes: w.Config.MaxConcurrentNodes,
+		}
+	}
+
 	return &engine.Workflow{
-		ID:    w.ID,
-		Name:  w.Name,
-		Nodes: nodes,
-		Edges: edges,
+		ID:     w.ID,
+		Name:   w.Name,
+		Nodes:  nodes,
+		Edges:  edges,
+		Config: config,
 	}
 }
 
@@ -111,11 +125,19 @@ func LoadWorkflowFromJSON(data []byte) (*Workflow, error) {
 		}
 	}
 
+	var config *WorkflowConfig
+	if engineWf.Config != nil {
+		config = &WorkflowConfig{
+			MaxConcurrentNodes: engineWf.Config.MaxConcurrentNodes,
+		}
+	}
+
 	return &Workflow{
-		ID:    engineWf.ID,
-		Name:  engineWf.Name,
-		Nodes: nodes,
-		Edges: edges,
+		ID:     engineWf.ID,
+		Name:   engineWf.Name,
+		Nodes:  nodes,
+		Edges:  edges,
+		Config: config,
 	}, nil
 }
 

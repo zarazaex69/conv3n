@@ -75,10 +75,15 @@ type Edge struct {
 // Workflow represents the entire workflow as a graph of nodes and edges.
 
 type Workflow struct {
-	ID    string          `json:"id"`
-	Name  string          `json:"name"`
-	Nodes map[string]Node `json:"nodes"` // Node ID -> Node
-	Edges []Edge          `json:"edges"`
+	ID     string          `json:"id"`
+	Name   string          `json:"name"`
+	Nodes  map[string]Node `json:"nodes"`
+	Edges  []Edge          `json:"edges"`
+	Config *WorkflowConfig `json:"config,omitempty"`
+}
+
+type WorkflowConfig struct {
+	MaxConcurrentNodes int `json:"max_concurrent_nodes,omitempty"`
 }
 
 // GetNode returns a node by ID, or nil if not found.
