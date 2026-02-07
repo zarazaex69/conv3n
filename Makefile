@@ -11,9 +11,6 @@ test:
 	@$(GO_CMD) test ./...
 	@echo "[test] Running JS/TS tests..."
 	@$(BUN_CMD) run test
-	@echo "[test] Running E2E tests..."
-	@$(GO_CMD) test -v -run TestE2E_FullStack -timeout 60s ./internal/api
-	@echo "[test] All tests completed successfully"
 
 # Run coverage tests
 cover:
