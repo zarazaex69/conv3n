@@ -12,7 +12,7 @@ interface CounterOutput {
     previousValue: number;
 }
 
-class CounterBlock extends Block<CounterConfig, CounterOutput> {
+export class CounterBlock extends Block<CounterConfig, CounterOutput> {
     validate(config: unknown): asserts config is CounterConfig {
         BlockHelpers.assertObject(config);
         BlockHelpers.assertNonEmptyString(config, "counterName");
