@@ -13,6 +13,8 @@ type RateLimiter struct {
 	mu       sync.RWMutex
 	rate     int
 	burst    int
+	stopChan chan struct{}
+	wg       sync.WaitGroup
 }
 
 type visitor struct {
@@ -25,8 +27,10 @@ func NewRateLimiter(rate, burst int) *RateLimiter {
 		visitors: make(map[string]*visitor),
 		rate:     rate,
 		burst:    burst,
+		stopChan: make(chan struct{}),
 	}
 
+	rl.wg.Add(1)
 	go rl.cleanup()
 
 	return rl
@@ -51,6 +55,13 @@ func (rl *RateLimiter) allow(key string) bool {
 
 	v, exists := rl.visitors[key]
 	if !exists {
+		if rl.burst <= 0 {
+			rl.visitors[key] = &visitor{
+				tokens:     0,
+				lastRefill: time.Now(),
+			}
+			return false
+		}
 		rl.visitors[key] = &visitor{
 			tokens:     rl.burst - 1,
 			lastRefill: time.Now(),
@@ -63,8 +74,12 @@ func (rl *RateLimiter) allow(key string) bool {
 	refill := int(elapsed.Seconds()) * rl.rate
 
 	v.tokens += refill
-	if v.tokens > rl.burst {
-		v.tokens = rl.burst
+	maxTokens := rl.burst
+	if rl.rate > rl.burst {
+		maxTokens = rl.rate
+	}
+	if v.tokens > maxTokens {
+		v.tokens = maxTokens
 	}
 	v.lastRefill = now
 
@@ -77,18 +92,29 @@ func (rl *RateLimiter) allow(key string) bool {
 }
 
 func (rl *RateLimiter) cleanup() {
+	defer rl.wg.Done()
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		for key, v := range rl.visitors {
-			if time.Since(v.lastRefill) > 10*time.Minute {
-				delete(rl.visitors, key)
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			for key, v := range rl.visitors {
+				if time.Since(v.lastRefill) > 10*time.Minute {
+					delete(rl.visitors, key)
+				}
 			}
+			rl.mu.Unlock()
+		case <-rl.stopChan:
+			return
 		}
-		rl.mu.Unlock()
 	}
+}
+
+func (rl *RateLimiter) Stop() {
+	close(rl.stopChan)
+	rl.wg.Wait()
 }
 
 func getIP(r *http.Request) string {

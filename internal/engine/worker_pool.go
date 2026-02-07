@@ -270,7 +270,6 @@ func (p *WorkerPool) getHealthyWorker() *BunWorker {
 
 func (w *BunWorker) execute(task *WorkerTask) *WorkerResult {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 
 	w.taskCount.Add(1)
 	w.lastUsed = time.Now()
@@ -282,6 +281,7 @@ func (w *BunWorker) execute(task *WorkerTask) *WorkerResult {
 	}
 
 	if err := w.encoder.Encode(request); err != nil {
+		w.mu.Unlock()
 		w.healthy.Store(false)
 		return &WorkerResult{
 			TaskID: task.ID,
@@ -289,18 +289,33 @@ func (w *BunWorker) execute(task *WorkerTask) *WorkerResult {
 		}
 	}
 
+	if err := w.conn.SetReadDeadline(time.Now().Add(task.Timeout)); err != nil {
+		w.mu.Unlock()
+		w.healthy.Store(false)
+		return &WorkerResult{
+			TaskID: task.ID,
+			Error:  fmt.Errorf("failed to set read deadline: %w", err),
+		}
+	}
+
 	var response map[string]any
-	if err := w.decoder.Decode(&response); err != nil {
-		if err == io.EOF {
+	decodeErr := w.decoder.Decode(&response)
+
+	w.conn.SetReadDeadline(time.Time{})
+	w.mu.Unlock()
+
+	if decodeErr != nil {
+		if decodeErr == io.EOF {
 			w.healthy.Store(false)
 			return &WorkerResult{
 				TaskID: task.ID,
 				Error:  fmt.Errorf("worker died unexpectedly"),
 			}
 		}
+		w.healthy.Store(false)
 		return &WorkerResult{
 			TaskID: task.ID,
-			Error:  fmt.Errorf("failed to decode response: %w", err),
+			Error:  fmt.Errorf("failed to decode response: %w", decodeErr),
 		}
 	}
 

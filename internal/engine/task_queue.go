@@ -100,15 +100,21 @@ func (pq *PersistentQueue) processTask(ctx context.Context, task *storage.Task) 
 
 	if err != nil {
 		task.Attempts++
-		if task.Attempts >= task.MaxRetries {
+		if task.Attempts > task.MaxRetries {
 			task.Status = "failed"
 			errMsg := err.Error()
 			task.Error = &errMsg
 		} else {
 			task.Status = "pending"
-			delay := time.Duration(task.Attempts) * 5 * time.Second
+			delay := time.Duration(task.Attempts) * 100 * time.Millisecond
 			time.Sleep(delay)
-			pq.pending <- task
+			select {
+			case pq.pending <- task:
+			case <-ctx.Done():
+				return
+			case <-pq.stopChan:
+				return
+			}
 		}
 	} else {
 		task.Status = "completed"

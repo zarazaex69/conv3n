@@ -363,6 +363,10 @@ func (wr *WorkflowRunner) executeNodeWithWorkerPool(ctx context.Context, node *N
 		return wr.executeVariableNode(node, input)
 	}
 
+	if wr.blockRegistry == nil {
+		return nil, fmt.Errorf("block registry is not initialized")
+	}
+
 	manifest, ok := wr.blockRegistry.Get(node.Type)
 	if !ok {
 		return nil, ErrInvalidNodeType

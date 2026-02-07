@@ -9,6 +9,7 @@ import (
 // Regex to find {{ $node["block_id"].data.field }} or {{ $vars.name }}
 
 var variableRegex = regexp.MustCompile(`\{\{\s*([^}]+)\s*\}\}`)
+var simpleVariableRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
 
 // ResolveVariables traverses the config (input) and replaces templates with real data from context.
 
@@ -47,24 +48,46 @@ func ResolveVariables(input any, ctx *ExecutionContext) (any, error) {
 
 func replaceString(str string, ctx *ExecutionContext) (any, error) {
 
+	simpleMatches := simpleVariableRegex.FindAllStringSubmatch(str, -1)
+	if len(simpleMatches) > 0 {
+		if len(simpleMatches) == 1 && simpleMatches[0][0] == str {
+			varName := strings.TrimSpace(simpleMatches[0][1])
+			val, exists := ctx.Variables[varName]
+			if !exists {
+				return nil, fmt.Errorf("variable not found: %s", varName)
+			}
+			return val, nil
+		}
+
+		result := str
+		for _, match := range simpleMatches {
+			fullMatch := match[0]
+			varName := strings.TrimSpace(match[1])
+
+			val, exists := ctx.Variables[varName]
+			if !exists {
+				return nil, fmt.Errorf("variable not found: %s", varName)
+			}
+
+			result = strings.Replace(result, fullMatch, fmt.Sprintf("%v", val), 1)
+		}
+		return result, nil
+	}
+
 	matches := variableRegex.FindAllStringSubmatch(str, -1)
 	if len(matches) == 0 {
 		return str, nil
 	}
-
-	// If the string is ENTIRELY a variable (e.g. "{{ $node.a.data }}"),
 
 	if len(matches) == 1 && matches[0][0] == str {
 		path := strings.TrimSpace(matches[0][1])
 		return getValueByPath(path, ctx)
 	}
 
-	// Otherwise do string interpolation
-
 	result := str
 	for _, match := range matches {
-		fullMatch := match[0]               // {{ ... }}
-		path := strings.TrimSpace(match[1]) // path inside
+		fullMatch := match[0]
+		path := strings.TrimSpace(match[1])
 
 		val, err := getValueByPath(path, ctx)
 		if err != nil {

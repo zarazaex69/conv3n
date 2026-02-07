@@ -1,6 +1,9 @@
 package engine
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // =============================================================================
 
@@ -152,7 +155,9 @@ type ExecutionContext struct {
 	WorkflowID    string
 	ExecutionID   string
 	Results       map[string]any
+	resultsMu     sync.RWMutex
 	Variables     map[string]any
+	variablesMu   sync.RWMutex
 	TriggerData   map[string]any
 	VariableStore *VariableStore
 	LastError     *ErrorContext
@@ -171,17 +176,23 @@ func NewExecutionContext(workflowID string) *ExecutionContext {
 
 // SetResult saves the output of a node.
 func (ctx *ExecutionContext) SetResult(nodeID string, result interface{}) {
+	ctx.resultsMu.Lock()
+	defer ctx.resultsMu.Unlock()
 	ctx.Results[nodeID] = result
 }
 
 // GetResult retrieves the output of a node.
 func (ctx *ExecutionContext) GetResult(nodeID string) interface{} {
+	ctx.resultsMu.RLock()
+	defer ctx.resultsMu.RUnlock()
 	return ctx.Results[nodeID]
 }
 
 // SetVar sets a user-defined variable.
 func (ctx *ExecutionContext) SetVar(name string, value interface{}) error {
+	ctx.variablesMu.Lock()
 	ctx.Variables[name] = value
+	ctx.variablesMu.Unlock()
 	return ctx.VariableStore.Set(ctx.WorkflowID, ctx.ExecutionID, name, value, ScopeExecution, nil)
 }
 

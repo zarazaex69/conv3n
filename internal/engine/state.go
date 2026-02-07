@@ -15,11 +15,11 @@ func NewStateManager(ctx *ExecutionContext) *StateManager {
 
 // SetResult saves the output of a block.
 func (sm *StateManager) SetResult(blockID string, result any) {
-	sm.ctx.Results[blockID] = result
+	sm.ctx.SetResult(blockID, result)
 }
 
 func (sm *StateManager) GetResult(nodeID string) any {
-	return sm.ctx.Results[nodeID]
+	return sm.ctx.GetResult(nodeID)
 }
 
 func (sm *StateManager) PrepareInput(node *Node) (map[string]any, error) {
