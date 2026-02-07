@@ -1,0 +1,35 @@
+{
+  "name": "std/counter",
+  "type": "std/counter",
+  "description": "Increment or decrement counter",
+  "scriptPath": "std/counter.ts",
+  "category": "data",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Counter value"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["increment", "decrement", "reset"],
+        "description": "Counter operation"
+      },
+      "step": {
+        "type": "number",
+        "description": "Step value",
+        "default": 1
+      }
+    },
+    "required": ["operation"]
+  }
+}

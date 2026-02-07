@@ -1,0 +1,53 @@
+{
+  "name": "std/http_request",
+  "type": "std/http_request",
+  "description": "Make HTTP requests to external APIs",
+  "scriptPath": "std/http_request.ts",
+  "category": "network",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "success",
+      "description": "Successful response (2xx)"
+    },
+    {
+      "name": "client_error",
+      "description": "Client error (4xx)"
+    },
+    {
+      "name": "server_error",
+      "description": "Server error (5xx)"
+    },
+    {
+      "name": "default",
+      "description": "Default output"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "Request URL"
+      },
+      "method": {
+        "type": "string",
+        "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+        "default": "GET"
+      },
+      "headers": {
+        "type": "object",
+        "description": "Request headers"
+      },
+      "body": {
+        "description": "Request body"
+      }
+    },
+    "required": ["url"]
+  }
+}

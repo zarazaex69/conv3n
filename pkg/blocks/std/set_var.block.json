@@ -1,0 +1,32 @@
+{
+  "name": "std/set_var",
+  "type": "std/set_var",
+  "description": "Set variable value",
+  "scriptPath": "std/set_var.ts",
+  "category": "variables",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Confirmation"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Variable name"
+      },
+      "value": {
+        "description": "Variable value"
+      }
+    },
+    "required": ["name", "value"]
+  }
+}

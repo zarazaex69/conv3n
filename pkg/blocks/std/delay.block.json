@@ -1,0 +1,29 @@
+{
+  "name": "std/delay",
+  "type": "std/delay",
+  "description": "Delay execution for specified duration",
+  "scriptPath": "std/delay.ts",
+  "category": "control",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Output after delay"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "duration": {
+        "type": "number",
+        "description": "Delay duration in milliseconds"
+      }
+    },
+    "required": ["duration"]
+  }
+}

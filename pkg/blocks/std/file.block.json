@@ -1,0 +1,38 @@
+{
+  "name": "std/file",
+  "type": "std/file",
+  "description": "File operations (read/write)",
+  "scriptPath": "std/file.ts",
+  "category": "io",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Operation result"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["read", "write", "append", "delete"],
+        "description": "File operation type"
+      },
+      "path": {
+        "type": "string",
+        "description": "File path"
+      },
+      "content": {
+        "type": "string",
+        "description": "Content to write"
+      }
+    },
+    "required": ["operation", "path"]
+  }
+}

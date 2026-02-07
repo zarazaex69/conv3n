@@ -2,7 +2,7 @@
   "name": "custom/example",
   "type": "custom/example",
   "description": "Example custom block demonstrating SDK usage",
-  "scriptPath": "example_block.ts",
+  "scriptPath": "custom/example_block.ts",
   "category": "custom",
   "inputs": [
     {

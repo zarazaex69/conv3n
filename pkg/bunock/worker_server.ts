@@ -1,5 +1,5 @@
-import { serve } from "bun";
-import { readFileSync } from "fs";
+import { createServer } from "net";
+import { unlinkSync, existsSync } from "fs";
 
 const socketPath = process.argv[2];
 
@@ -23,9 +23,55 @@ interface TaskResponse {
 async function executeScript(scriptPath: string, input: any): Promise<any> {
     const module = await import(scriptPath);
     
-    if (module.default && typeof module.default.execute === "function") {
-        const instance = new module.default();
-        return await instance.execute(input.config, input.input);
+    let BlockClass = module.default;
+    
+    if (!BlockClass) {
+        const exportedClasses = Object.values(module).filter(
+            (exp) => typeof exp === "function" && exp.prototype
+        );
+        
+        if (exportedClasses.length > 0) {
+            BlockClass = exportedClasses[0] as any;
+        }
+    }
+    
+    if (BlockClass) {
+        const instance = new BlockClass();
+        
+        if (typeof instance.run === "function") {
+            let capturedOutput: any = null;
+            
+            const originalWrite = Bun.write;
+            (Bun as any).write = async (dest: any, data: any) => {
+                if (dest === Bun.stdout || dest === 1) {
+                    try {
+                        const str = typeof data === "string" ? data : data.toString();
+                        capturedOutput = JSON.parse(str);
+                    } catch (e) {
+                        capturedOutput = data;
+                    }
+                    return data.length || 0;
+                }
+                return originalWrite(dest, data);
+            };
+            
+            const originalStdin = Bun.stdin;
+            (Bun as any).stdin = {
+                json: async () => input,
+            };
+            
+            try {
+                await instance.run();
+                return capturedOutput;
+            } finally {
+                (Bun as any).write = originalWrite;
+                (Bun as any).stdin = originalStdin;
+            }
+        }
+        
+        if (typeof instance.execute === "function") {
+            return await instance.execute(input.config, input.input);
+        }
     }
     
     if (typeof module.execute === "function") {
@@ -35,41 +81,77 @@ async function executeScript(scriptPath: string, input: any): Promise<any> {
     throw new Error(`Script ${scriptPath} does not export a valid block`);
 }
 
-const server = serve({
-    unix: socketPath,
+if (existsSync(socketPath)) {
+    unlinkSync(socketPath);
+}
+
+const server = createServer((socket) => {
+    console.log("New connection established");
+    let buffer = "";
     
-    async fetch(req) {
-        try {
-            const task: TaskRequest = await req.json();
+    socket.on("data", async (chunk) => {
+        buffer += chunk.toString();
+        
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        
+        for (const line of lines) {
+            if (!line.trim()) continue;
             
-            const result = await executeScript(task.script_path, task.input);
-            
-            const response: TaskResponse = {
-                task_id: task.task_id,
-                data: result,
-            };
-            
-            return new Response(JSON.stringify(response), {
-                headers: { "Content-Type": "application/json" },
-            });
-            
-        } catch (error) {
-            const response: TaskResponse = {
-                task_id: "unknown",
-                error: error instanceof Error ? error.message : String(error),
-            };
-            
-            return new Response(JSON.stringify(response), {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-            });
+            try {
+                const task: TaskRequest = JSON.parse(line);
+                console.log(`Received task: ${task.task_id}`);
+                
+                try {
+                    const result = await executeScript(task.script_path, task.input);
+                    
+                    const response: TaskResponse = {
+                        task_id: task.task_id,
+                        data: result,
+                    };
+                    
+                    socket.write(JSON.stringify(response) + "\n");
+                    console.log(`Sent response for task: ${task.task_id}`);
+                } catch (error) {
+                    console.error(`Task ${task.task_id} failed:`, error);
+                    const response: TaskResponse = {
+                        task_id: task.task_id,
+                        error: error instanceof Error ? error.message : String(error),
+                    };
+                    
+                    socket.write(JSON.stringify(response) + "\n");
+                }
+            } catch (parseError) {
+                console.error("Failed to parse task:", parseError);
+            }
         }
-    },
+    });
+    
+    socket.on("error", (err) => {
+        console.error("Socket error:", err);
+    });
+    
+    socket.on("close", () => {
+        console.log("Connection closed");
+    });
 });
 
-console.log(`Worker listening on ${socketPath}`);
+server.listen(socketPath, () => {
+    console.log(`Worker listening on ${socketPath}`);
+});
 
 process.on("SIGTERM", () => {
-    server.stop();
+    server.close();
+    if (existsSync(socketPath)) {
+        unlinkSync(socketPath);
+    }
+    process.exit(0);
+});
+
+process.on("SIGINT", () => {
+    server.close();
+    if (existsSync(socketPath)) {
+        unlinkSync(socketPath);
+    }
     process.exit(0);
 });

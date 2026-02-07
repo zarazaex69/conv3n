@@ -1,0 +1,32 @@
+{
+  "name": "std/loop",
+  "type": "std/loop",
+  "description": "Iterate over array items",
+  "scriptPath": "std/loop.ts",
+  "category": "control",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "item",
+      "description": "Current item"
+    },
+    {
+      "name": "complete",
+      "description": "All items processed"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "description": "Array to iterate over"
+      }
+    },
+    "required": ["items"]
+  }
+}

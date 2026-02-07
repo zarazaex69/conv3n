@@ -1,0 +1,37 @@
+{
+  "name": "std/webhook",
+  "type": "std/webhook",
+  "description": "Send webhook requests",
+  "scriptPath": "std/webhook.ts",
+  "category": "network",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Webhook response"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "Webhook URL"
+      },
+      "method": {
+        "type": "string",
+        "enum": ["POST", "PUT", "PATCH"],
+        "description": "HTTP method"
+      },
+      "body": {
+        "description": "Request body"
+      }
+    },
+    "required": ["url", "method"]
+  }
+}

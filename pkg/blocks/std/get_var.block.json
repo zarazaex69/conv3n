@@ -1,0 +1,29 @@
+{
+  "name": "std/get_var",
+  "type": "std/get_var",
+  "description": "Get variable value",
+  "scriptPath": "std/get_var.ts",
+  "category": "variables",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Variable value"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Variable name"
+      }
+    },
+    "required": ["name"]
+  }
+}

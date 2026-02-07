@@ -1,0 +1,33 @@
+{
+  "name": "std/condition",
+  "type": "std/condition",
+  "description": "Conditional branching based on expression",
+  "scriptPath": "std/condition.ts",
+  "category": "control",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "true",
+      "description": "Condition is true"
+    },
+    {
+      "name": "false",
+      "description": "Condition is false"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "condition": {
+        "type": "string",
+        "description": "JavaScript expression to evaluate"
+      }
+    },
+    "required": ["condition"]
+  }
+}

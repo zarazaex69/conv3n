@@ -1,0 +1,32 @@
+{
+  "name": "std/database",
+  "type": "std/database",
+  "description": "Execute database queries",
+  "scriptPath": "std/database.ts",
+  "category": "data",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Query result"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "SQL query to execute"
+      },
+      "params": {
+        "description": "Query parameters"
+      }
+    },
+    "required": ["query"]
+  }
+}

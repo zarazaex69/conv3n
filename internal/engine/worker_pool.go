@@ -109,6 +109,8 @@ func (p *WorkerPool) startWorker(id int) (*BunWorker, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start bun process: %w", err)

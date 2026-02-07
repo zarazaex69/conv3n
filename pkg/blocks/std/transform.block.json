@@ -1,0 +1,29 @@
+{
+  "name": "std/transform",
+  "type": "std/transform",
+  "description": "Transform data using JavaScript code",
+  "scriptPath": "std/transform.ts",
+  "category": "data",
+  "inputs": [
+    {
+      "name": "main",
+      "description": "Main input port"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "default",
+      "description": "Transformed output"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "JavaScript code to transform data"
+      }
+    },
+    "required": ["code"]
+  }
+}
