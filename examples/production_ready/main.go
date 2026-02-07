@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/zarazaex69/conv3n/internal/observability"
 	"github.com/zarazaex69/conv3n/pkg/conv3n"
 )
 
@@ -139,6 +140,9 @@ func startHTTPServer(runtime *conv3n.Runtime) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(metrics)
 	})
+
+	prometheusExporter := observability.NewPrometheusExporter(observability.GetMetrics())
+	mux.HandleFunc("/metrics/prometheus", prometheusExporter.Handler())
 
 	mux.HandleFunc("/traces", func(w http.ResponseWriter, r *http.Request) {
 		traces := runtime.Traces()

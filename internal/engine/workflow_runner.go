@@ -293,8 +293,10 @@ func (wr *WorkflowRunner) executeNode(ctx context.Context, graph *executionGraph
 	var rawResult any
 
 	cbKey := fmt.Sprintf("node:%s", node.Type)
-	if url, ok := resolvedConfig["url"].(string); ok && node.Type == NodeTypeHTTPRequest {
-		cbKey = fmt.Sprintf("%s:%s", node.Type, url)
+	if configMap, ok := resolvedConfig.(map[string]any); ok {
+		if url, ok := configMap["url"].(string); ok && node.Type == NodeTypeHTTPRequest {
+			cbKey = fmt.Sprintf("%s:%s", node.Type, url)
+		}
 	}
 
 	rawResult, err = RetryWithBackoff(ctx, wr.retryConfig, func(ctx context.Context) (any, error) {

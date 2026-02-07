@@ -9,31 +9,9 @@ import (
 	"github.com/zarazaex69/conv3n/internal/storage"
 )
 
-type TaskStatus string
-
-const (
-	TaskStatusPending   TaskStatus = "pending"
-	TaskStatusRunning   TaskStatus = "running"
-	TaskStatusCompleted TaskStatus = "completed"
-	TaskStatusFailed    TaskStatus = "failed"
-)
-
-type Task struct {
-	ID         string
-	TriggerID  string
-	WorkflowID string
-	Payload    map[string]interface{}
-	Status     TaskStatus
-	Attempts   int
-	MaxRetries int
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Error      *string
-}
-
 type PersistentQueue struct {
 	store      storage.Storage
-	pending    chan *Task
+	pending    chan *storage.Task
 	workers    int
 	wg         sync.WaitGroup
 	stopChan   chan struct{}
@@ -43,13 +21,13 @@ type PersistentQueue struct {
 }
 
 type TaskExecutor interface {
-	Execute(ctx context.Context, task *Task) error
+	Execute(ctx context.Context, task *storage.Task) error
 }
 
 func NewPersistentQueue(store storage.Storage, workers int, executor TaskExecutor) *PersistentQueue {
 	return &PersistentQueue{
 		store:      store,
-		pending:    make(chan *Task, workers*2),
+		pending:    make(chan *storage.Task, workers*2),
 		workers:    workers,
 		stopChan:   make(chan struct{}),
 		pollTicker: time.NewTicker(5 * time.Second),
@@ -79,8 +57,8 @@ func (pq *PersistentQueue) Stop() {
 	pq.wg.Wait()
 }
 
-func (pq *PersistentQueue) Enqueue(ctx context.Context, task *Task) error {
-	task.Status = TaskStatusPending
+func (pq *PersistentQueue) Enqueue(ctx context.Context, task *storage.Task) error {
+	task.Status = "pending"
 	task.CreatedAt = time.Now()
 	task.UpdatedAt = time.Now()
 
@@ -113,8 +91,8 @@ func (pq *PersistentQueue) worker(ctx context.Context, id int) {
 	}
 }
 
-func (pq *PersistentQueue) processTask(ctx context.Context, task *Task) {
-	task.Status = TaskStatusRunning
+func (pq *PersistentQueue) processTask(ctx context.Context, task *storage.Task) {
+	task.Status = "running"
 	task.UpdatedAt = time.Now()
 	pq.store.UpdateTask(ctx, task)
 
@@ -123,17 +101,17 @@ func (pq *PersistentQueue) processTask(ctx context.Context, task *Task) {
 	if err != nil {
 		task.Attempts++
 		if task.Attempts >= task.MaxRetries {
-			task.Status = TaskStatusFailed
+			task.Status = "failed"
 			errMsg := err.Error()
 			task.Error = &errMsg
 		} else {
-			task.Status = TaskStatusPending
+			task.Status = "pending"
 			delay := time.Duration(task.Attempts) * 5 * time.Second
 			time.Sleep(delay)
 			pq.pending <- task
 		}
 	} else {
-		task.Status = TaskStatusCompleted
+		task.Status = "completed"
 	}
 
 	task.UpdatedAt = time.Now()

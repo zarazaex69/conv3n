@@ -130,17 +130,21 @@ func TestWorkflowAPI_ListAndDelete(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listRec.Code)
 	}
 
-	var listResp []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+	var listResp struct {
+		Items []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"items"`
+		Limit  int `json:"limit"`
+		Offset int `json:"offset"`
 	}
 
 	if err := json.NewDecoder(listRec.Body).Decode(&listResp); err != nil {
 		t.Fatalf("failed to decode list response: %v", err)
 	}
 
-	if len(listResp) != 2 {
-		t.Fatalf("expected 2 workflows in list, got %d", len(listResp))
+	if len(listResp.Items) != 2 {
+		t.Fatalf("expected 2 workflows in list, got %d", len(listResp.Items))
 	}
 
 	// Delete first workflow
