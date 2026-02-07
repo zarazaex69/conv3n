@@ -276,8 +276,6 @@ func isDuplicateColumnError(err error) bool {
 	return err != nil && (strings.Contains(err.Error(), "duplicate column name") || strings.Contains(err.Error(), "SQLITE_ERROR: duplicate column name"))
 }
 
-// --- Workflow CRUD ---
-
 func (s *SQLiteStorage) CreateWorkflow(ctx context.Context, w *Workflow) error {
 	query := `
 		INSERT INTO workflows (id, name, definition, created_at, updated_at)
@@ -354,8 +352,6 @@ func (s *SQLiteStorage) ListWorkflowsPaginated(ctx context.Context, limit, offse
 	}
 	return workflows, nil
 }
-
-// --- Execution Management ---
 
 // CreateExecution creates a new workflow execution instance
 
@@ -500,8 +496,6 @@ func (s *SQLiteStorage) GetNodeResult(ctx context.Context, executionID, nodeID s
 	return result, nil
 }
 
-// --- Trigger Management ---
-
 func (s *SQLiteStorage) CreateTrigger(ctx context.Context, t *Trigger) error {
 	query := `
 		INSERT INTO triggers (id, workflow_id, type, config, enabled, created_at, updated_at, file_path)
@@ -593,8 +587,6 @@ func (s *SQLiteStorage) ListAllTriggers(ctx context.Context) ([]*Trigger, error)
 	}
 	return triggers, nil
 }
-
-// --- Trigger Execution History ---
 
 func (s *SQLiteStorage) CreateTriggerExecution(ctx context.Context, te *TriggerExecution) error {
 	query := `

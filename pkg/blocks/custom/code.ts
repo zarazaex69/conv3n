@@ -63,7 +63,6 @@ async function main(): Promise<void> {
             ? input.config.input
             : (input.input ?? {});
 
-        // 2. Validate syntax by attempting to transpile
         try {
             const transpiler = new Bun.Transpiler({ loader: "ts" });
             transpiler.transformSync(userCode);
@@ -80,7 +79,6 @@ async function main(): Promise<void> {
             return;
         }
 
-        // 3. Execute user code in isolated context
 
         // Example: export default async (input) => { return { result: input.value * 2 }; }
 
@@ -113,7 +111,6 @@ async function main(): Promise<void> {
             return;
         }
 
-        // 4. Execute the user function with input data
         let executionResult: unknown;
 
         try {
@@ -131,7 +128,6 @@ async function main(): Promise<void> {
             return;
         }
 
-        // 5. Return successful result with port routing
         const endTime = performance.now();
         const result: BlockResult = {
             data: {

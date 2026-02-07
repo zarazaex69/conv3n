@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-// =============================================================================
-
-// =============================================================================
-
 // NodeType defines the type of the node (e.g., "std/http_request", "trigger/http").
 type NodeType string
 
@@ -42,10 +38,6 @@ func (nt NodeType) IsTrigger() bool {
 	}
 }
 
-// =============================================================================
-
-// =============================================================================
-
 // Position represents the visual position of a node in the editor.
 type Position struct {
 	X float64 `json:"x"`
@@ -70,10 +62,6 @@ type Edge struct {
 	SourceHandle string `json:"sourceHandle,omitempty"` // Output port (e.g., "true", "false", "default")
 	TargetHandle string `json:"targetHandle,omitempty"` // Input port (e.g., "main", "data")
 }
-
-// =============================================================================
-
-// =============================================================================
 
 // Workflow represents the entire workflow as a graph of nodes and edges.
 
@@ -139,10 +127,6 @@ func (w *Workflow) FindOutgoingEdges(nodeID string) []Edge {
 	}
 	return edges
 }
-
-// =============================================================================
-
-// =============================================================================
 
 type ErrorContext struct {
 	Message   string    `json:"message"`
@@ -216,10 +200,6 @@ func (ctx *ExecutionContext) ClearError() {
 	ctx.LastError = nil
 }
 
-// =============================================================================
-
-// =============================================================================
-
 // BlockResult represents the output from a Bun worker execution.
 
 type NodeResult struct {
@@ -262,7 +242,3 @@ func parseNodeResult(raw any) *NodeResult {
 
 	return result
 }
-
-// =============================================================================
-
-// =============================================================================
