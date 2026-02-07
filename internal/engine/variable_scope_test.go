@@ -73,6 +73,7 @@ func TestVariableStore_ClearExecution(t *testing.T) {
 
 func TestVariableStore_ScopePriority(t *testing.T) {
 	store := NewVariableStore()
+	store.disableShadowCheck = true
 	defer store.Close()
 
 	workflowID := "wf1"
@@ -90,5 +91,58 @@ func TestVariableStore_ScopePriority(t *testing.T) {
 
 	if _, ok := store.Get(workflowID, executionID, "var"); ok {
 		t.Error("all scopes should be deleted")
+	}
+}
+
+func TestVariableStore_ShadowingProtection(t *testing.T) {
+	store := NewVariableStore()
+	defer store.Close()
+
+	workflowID := "wf1"
+	executionID := "exec1"
+
+	if err := store.Set(workflowID, executionID, "var", "global", ScopeGlobal, nil); err != nil {
+		t.Fatalf("failed to set global variable: %v", err)
+	}
+
+	if err := store.Set(workflowID, executionID, "var", "workflow", ScopeWorkflow, nil); err == nil {
+		t.Error("expected error when shadowing global variable from workflow scope")
+	}
+
+	if err := store.Set(workflowID, executionID, "var", "execution", ScopeExecution, nil); err == nil {
+		t.Error("expected error when shadowing global variable from execution scope")
+	}
+
+	if err := store.Set(workflowID, executionID, "other", "workflow", ScopeWorkflow, nil); err != nil {
+		t.Fatalf("failed to set workflow variable: %v", err)
+	}
+
+	if err := store.Set(workflowID, executionID, "other", "execution", ScopeExecution, nil); err == nil {
+		t.Error("expected error when shadowing workflow variable from execution scope")
+	}
+}
+
+func TestVariableStore_TypeSafety(t *testing.T) {
+	store := NewVariableStore()
+	defer store.Close()
+
+	workflowID := "wf1"
+	executionID := "exec1"
+
+	if err := store.Set(workflowID, executionID, "numVar", 42, ScopeExecution, nil); err != nil {
+		t.Fatalf("failed to set variable: %v", err)
+	}
+
+	val, err := store.GetWithTypeCheck(workflowID, executionID, "numVar", "number")
+	if err != nil {
+		t.Errorf("expected success with correct type, got error: %v", err)
+	}
+	if val != 42 {
+		t.Errorf("expected 42, got %v", val)
+	}
+
+	_, err = store.GetWithTypeCheck(workflowID, executionID, "numVar", "string")
+	if err == nil {
+		t.Error("expected type mismatch error")
 	}
 }

@@ -83,7 +83,9 @@ type Workflow struct {
 }
 
 type WorkflowConfig struct {
-	MaxConcurrentNodes int `json:"max_concurrent_nodes,omitempty"`
+	MaxConcurrentNodes int           `json:"max_concurrent_nodes,omitempty"`
+	Timeout            time.Duration `json:"timeout,omitempty"`
+	WorkerTimeout      time.Duration `json:"worker_timeout,omitempty"`
 }
 
 // GetNode returns a node by ID, or nil if not found.

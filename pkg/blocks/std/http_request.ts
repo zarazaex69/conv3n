@@ -1,4 +1,4 @@
-import { Block, BlockHelpers } from "#sdk";
+import { Block, BlockHelpers, BlockExecutionError } from "#sdk";
 
 interface HttpRequestConfig {
     url: string;
@@ -33,11 +33,19 @@ export class HttpRequestBlock extends Block<HttpRequestConfig, HttpRequestOutput
         const headers = config.headers || {};
         const body = config.body ? JSON.stringify(config.body) : undefined;
 
-        const response = await fetch(config.url, {
-            method,
-            headers,
-            body,
-        });
+        let response: Response;
+        try {
+            response = await fetch(config.url, {
+                method,
+                headers,
+                body,
+            });
+        } catch (err) {
+            throw new BlockExecutionError(
+                `HTTP request to ${config.url} failed: ${err instanceof Error ? err.message : String(err)}`,
+                err
+            );
+        }
 
         const responseData = await response.text();
 

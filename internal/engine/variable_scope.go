@@ -2,6 +2,7 @@ package engine
 
 import (
 	"container/heap"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -15,9 +16,10 @@ const (
 )
 
 type ScopedVariable struct {
-	Value     any
-	Scope     VariableScope
-	ExpiresAt *time.Time
+	Value        any
+	Scope        VariableScope
+	ExpiresAt    *time.Time
+	ExpectedType string
 }
 
 type expiryItem struct {
@@ -56,13 +58,14 @@ func (h *expiryHeap) Pop() any {
 }
 
 type VariableStore struct {
-	global    map[string]*ScopedVariable
-	workflow  map[string]map[string]*ScopedVariable
-	execution map[string]map[string]*ScopedVariable
-	mu        sync.RWMutex
-	stopChan  chan struct{}
-	expiry    expiryHeap
-	expiryMu  sync.Mutex
+	global             map[string]*ScopedVariable
+	workflow           map[string]map[string]*ScopedVariable
+	execution          map[string]map[string]*ScopedVariable
+	mu                 sync.RWMutex
+	stopChan           chan struct{}
+	expiry             expiryHeap
+	expiryMu           sync.Mutex
+	disableShadowCheck bool
 }
 
 func NewVariableStore() *VariableStore {
@@ -89,6 +92,14 @@ func (vs *VariableStore) Set(workflowID, executionID, name string, value any, sc
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
+	if !vs.disableShadowCheck {
+		if err := vs.checkShadowing(workflowID, executionID, name, scope); err != nil {
+			return err
+		}
+	}
+
+	expectedType := inferType(value)
+
 	var expiresAt *time.Time
 	if ttl != nil {
 		expiry := time.Now().Add(*ttl)
@@ -96,9 +107,10 @@ func (vs *VariableStore) Set(workflowID, executionID, name string, value any, sc
 	}
 
 	variable := &ScopedVariable{
-		Value:     value,
-		Scope:     scope,
-		ExpiresAt: expiresAt,
+		Value:        value,
+		Scope:        scope,
+		ExpiresAt:    expiresAt,
+		ExpectedType: expectedType,
 	}
 
 	var scopeKey string
@@ -155,6 +167,42 @@ func (vs *VariableStore) Get(workflowID, executionID, name string) (any, bool) {
 	}
 
 	return nil, false
+}
+
+func (vs *VariableStore) GetWithTypeCheck(workflowID, executionID, name, expectedType string) (any, error) {
+	vs.mu.RLock()
+	defer vs.mu.RUnlock()
+
+	var variable *ScopedVariable
+	if execVars, ok := vs.execution[executionID]; ok {
+		if v, exists := execVars[name]; exists && !vs.isExpired(v) {
+			variable = v
+		}
+	}
+
+	if variable == nil {
+		if wfVars, ok := vs.workflow[workflowID]; ok {
+			if v, exists := wfVars[name]; exists && !vs.isExpired(v) {
+				variable = v
+			}
+		}
+	}
+
+	if variable == nil {
+		if v, exists := vs.global[name]; exists && !vs.isExpired(v) {
+			variable = v
+		}
+	}
+
+	if variable == nil {
+		return nil, fmt.Errorf("variable '%s' not found", name)
+	}
+
+	if expectedType != "" && variable.ExpectedType != expectedType {
+		return nil, fmt.Errorf("type mismatch: variable '%s' expected %s, got %s", name, expectedType, variable.ExpectedType)
+	}
+
+	return variable.Value, nil
 }
 
 func (vs *VariableStore) Delete(workflowID, executionID, name string) {
@@ -239,4 +287,45 @@ func (vs *VariableStore) processExpiredVariables() {
 
 func (vs *VariableStore) Close() {
 	close(vs.stopChan)
+}
+
+func (vs *VariableStore) checkShadowing(workflowID, executionID, name string, scope VariableScope) error {
+	switch scope {
+	case ScopeExecution:
+		if wfVars, ok := vs.workflow[workflowID]; ok {
+			if _, exists := wfVars[name]; exists {
+				return fmt.Errorf("shadowing error: variable '%s' already exists in workflow scope", name)
+			}
+		}
+		if _, exists := vs.global[name]; exists {
+			return fmt.Errorf("shadowing error: variable '%s' already exists in global scope", name)
+		}
+	case ScopeWorkflow:
+		if _, exists := vs.global[name]; exists {
+			return fmt.Errorf("shadowing error: variable '%s' already exists in global scope", name)
+		}
+	}
+	return nil
+}
+
+func inferType(value any) string {
+	if value == nil {
+		return "nil"
+	}
+	switch value.(type) {
+	case string:
+		return "string"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return "number"
+	case float32, float64:
+		return "number"
+	case bool:
+		return "boolean"
+	case map[string]any:
+		return "object"
+	case []any:
+		return "array"
+	default:
+		return "unknown"
+	}
 }

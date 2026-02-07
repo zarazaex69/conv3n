@@ -545,7 +545,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 
 		triggerRunner, exists := tm.GetTrigger(triggerID)
 		if !exists {
-			log.Printf("Trigger not found: %s", triggerID)
+			log.Printf("[ERROR] Trigger not found: %s", triggerID)
 			return
 		}
 
@@ -557,7 +557,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			log.Printf("Failed to get trigger: %v", err)
+			log.Printf("[ERROR] Failed to get trigger: %v", err)
 			return
 		}
 
@@ -567,7 +567,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			log.Printf("Failed to get workflow: %v", err)
+			log.Printf("[ERROR] Failed to get workflow: %v", err)
 			return
 		}
 
@@ -578,7 +578,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			log.Printf("Failed to parse workflow: %v", err)
+			log.Printf("[ERROR] Failed to parse workflow: %v", err)
 			return
 		}
 
@@ -600,7 +600,7 @@ func (tm *TriggerManager) Fire(ctx context.Context, triggerID string, payload ma
 			msg := err.Error()
 			triggerExec.Error = &msg
 			tm.Store.CreateTriggerExecution(ctx, triggerExec)
-			log.Printf("Workflow execution failed: %v", err)
+			log.Printf("[ERROR] Workflow execution failed: %v", err)
 			return
 		}
 

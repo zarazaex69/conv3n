@@ -25,6 +25,7 @@ type WorkflowRunner struct {
 	tracer          *observability.Tracer
 	logger          *observability.Logger
 	dataLimiter     *DataLimiter
+	workflowConfig  *WorkflowConfig
 }
 
 func NewWorkflowRunner(
@@ -56,8 +57,13 @@ func NewWorkflowRunner(
 
 func (wr *WorkflowRunner) Run(ctx context.Context, workflow Workflow) error {
 	workflowTimeout := 5 * time.Minute
-	if workflow.Config != nil && workflow.Config.MaxConcurrentNodes > 0 {
-		workflowTimeout = time.Duration(workflow.Config.MaxConcurrentNodes) * time.Minute
+	if workflow.Config != nil {
+		wr.workflowConfig = workflow.Config
+		if workflow.Config.Timeout > 0 {
+			workflowTimeout = workflow.Config.Timeout
+		} else if workflow.Config.MaxConcurrentNodes > 0 {
+			workflowTimeout = time.Duration(workflow.Config.MaxConcurrentNodes) * time.Minute
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, workflowTimeout)
@@ -362,7 +368,12 @@ func (wr *WorkflowRunner) executeNodeWithWorkerPool(ctx context.Context, node *N
 		return nil, ErrInvalidNodeType
 	}
 
-	return wr.workerPool.Submit(ctx, manifest.ScriptPath, input, 30*time.Second)
+	workerTimeout := 30 * time.Second
+	if wr.workflowConfig != nil && wr.workflowConfig.WorkerTimeout > 0 {
+		workerTimeout = wr.workflowConfig.WorkerTimeout
+	}
+
+	return wr.workerPool.Submit(ctx, manifest.ScriptPath, input, workerTimeout)
 }
 
 func (wr *WorkflowRunner) executeVariableNode(node *Node, input any) (any, error) {

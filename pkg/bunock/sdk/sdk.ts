@@ -38,6 +38,34 @@ export interface ErrorDetails {
     stack?: string;
 }
 
+export class BlockExecutionError extends Error {
+    readonly type = "BlockExecutionError";
+    constructor(message: string, public readonly cause?: unknown) {
+        super(message);
+        this.name = "BlockExecutionError";
+    }
+}
+
+export class ValidationError extends Error {
+    readonly type = "ValidationError";
+    constructor(message: string, public readonly field?: string) {
+        super(message);
+        this.name = "ValidationError";
+    }
+}
+
+export type Result<T, E = Error> = 
+    | { ok: true; value: T }
+    | { ok: false; error: E };
+
+export function Ok<T>(value: T): Result<T, never> {
+    return { ok: true, value };
+}
+
+export function Err<E>(error: E): Result<never, E> {
+    return { ok: false, error };
+}
+
 /**
  * Base abstract class for building type-safe blocks
  * Handles stdin/stdout communication protocol automatically
